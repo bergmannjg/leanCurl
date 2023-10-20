@@ -1,0 +1,5 @@
+{"version": 5,
+ "packagesDir": "lake-packages",
+ "packages":
+ [{"path":
+   {"opts": {}, "name": "Curl", "inherited": false, "dir": "./../../"}}]}
