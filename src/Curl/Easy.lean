@@ -7,12 +7,14 @@ open Lean
 
 namespace Curl
 
-private def writeBytes (r : IO.Ref IO.FS.Stream.Buffer) (bytes : ByteArray) : IO Unit :=
+/-- default CurlOption.WRITEFUNCTION -/
+def writeBytes (r : IO.Ref IO.FS.Stream.Buffer) (bytes : ByteArray) : IO Unit :=
   -- see IO.FS.Stream.ofBuffer
   r.modify fun b =>
     { b with data := bytes.copySlice 0 b.data b.pos bytes.size false, pos := b.pos + bytes.size }
 
-private def readBytes (r : IO.Ref IO.FS.Stream.Buffer) (n : UInt32) : IO ByteArray :=
+/-- default CurlOption.HEADERFUNCTION -/
+def readBytes (r : IO.Ref IO.FS.Stream.Buffer) (n : UInt32) : IO ByteArray :=
   -- see IO.FS.Stream.ofBuffer
   r.modifyGet fun b =>
     let n' := if b.pos + n.toNat < b.data.size then n.toNat else b.data.size - b.pos
@@ -34,20 +36,11 @@ def curl_set_option (curl: Curl.Handle) (opt : CurlOption) : IO Unit := do
   match opt with
   | CurlOption.URL s => pure (← Extern.curl_easy_setopt_string curl (sp + 2) s)
   | CurlOption.USERPWD s => pure (← Extern.curl_easy_setopt_string curl (sp + 5) s)
-  | CurlOption.WRITEDATA r => do
-      Extern.curl_easy_setopt_writedata curl r
-      Extern.curl_easy_setopt_writefunction curl writeBytes -- set default writefunction
-      pure ()
+  | CurlOption.WRITEDATA r => pure (← Extern.curl_easy_setopt_writedata curl r)
   | CurlOption.WRITEFUNCTION r =>  pure (← Extern.curl_easy_setopt_writefunction curl r)
-  | CurlOption.HEADERDATA r => do
-      Extern.curl_easy_setopt_headerdata curl r
-      Extern.curl_easy_setopt_headerfunction curl writeBytes -- set default writefunction
-      pure ()
+  | CurlOption.HEADERDATA r => pure (← Extern.curl_easy_setopt_headerdata curl r)
   | CurlOption.HEADERFUNCTION r =>  pure (← Extern.curl_easy_setopt_headerfunction curl r)
-  | CurlOption.READDATA r =>
-      Extern.curl_easy_setopt_readdata curl r
-      Extern.curl_easy_setopt_readfunction curl readBytes -- set default readfunction
-      pure ()
+  | CurlOption.READDATA r => pure (← Extern.curl_easy_setopt_readdata curl r)
   | CurlOption.READFUNCTION r =>  pure (← Extern.curl_easy_setopt_readfunction curl r)
   | CurlOption.REFERER s => pure (← Extern.curl_easy_setopt_string curl (sp + 16) s)
   | CurlOption.USERAGENT s => pure (← Extern.curl_easy_setopt_string curl (sp + 18) s)

@@ -22,6 +22,7 @@ def main : IO Unit := do
     if System.Platform.isWindows then curl_set_option curl (CurlOption.CAINFO "C:\\Program Files\\Curl\\bin\\curl-ca-bundle.crt")
     curl_set_option curl (CurlOption.HTTPHEADER #["Accept: application/json"])
     curl_set_option curl (CurlOption.WRITEDATA response)
+    curl_set_option curl (CurlOption.WRITEFUNCTION Curl.writeBytes)
     curl_easy_perform curl
 
     let bytes ← response.get

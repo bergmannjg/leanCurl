@@ -27,6 +27,7 @@ def main : IO Unit := do
     curl_set_option curl (CurlOption.COPYPOSTFIELDS (toJson product).compress)
     curl_set_option curl (CurlOption.HTTPHEADER #["Content-Type: application/json", "Accept: application/json"])
     curl_set_option curl (CurlOption.WRITEDATA response)
+    curl_set_option curl (CurlOption.WRITEFUNCTION Curl.writeBytes)
     curl_easy_perform curl
 
     let bytes ← response.get

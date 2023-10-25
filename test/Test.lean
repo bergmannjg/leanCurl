@@ -15,8 +15,10 @@ def put_should_contain (s : String) : IO Unit := do
     if System.Platform.isWindows then curl_set_option curl (CurlOption.CAINFO "C:\\Program Files\\Curl\\bin\\curl-ca-bundle.crt")
     curl_set_option curl (CurlOption.UPLOAD 1)
     curl_set_option curl (CurlOption.READDATA upload)
+    curl_set_option curl (CurlOption.READFUNCTION Curl.readBytes)
     curl_set_option curl (CurlOption.HTTPHEADER #["Content-Type: application/json", "Accept: application/json"])
     curl_set_option curl (CurlOption.WRITEDATA r)
+    curl_set_option curl (CurlOption.WRITEFUNCTION Curl.writeBytes)
     curl_easy_perform curl
 
     let response := String.fromUTF8Unchecked (← r.get).data
@@ -31,7 +33,9 @@ def get_should_be_equal (url : String) (file : String) : IO Unit := do
   curl_set_option curl (CurlOption.VERBOSE 0)
   if System.Platform.isWindows then curl_set_option curl (CurlOption.CAINFO "C:\\Program Files\\Curl\\bin\\curl-ca-bundle.crt")
   curl_set_option curl (CurlOption.WRITEDATA r)
+  curl_set_option curl (CurlOption.WRITEFUNCTION Curl.writeBytes)
   curl_set_option curl (CurlOption.HEADERDATA h)
+  curl_set_option curl (CurlOption.HEADERFUNCTION Curl.writeBytes)
   curl_easy_perform curl
 
   let headers := String.fromUTF8Unchecked (← h.get).data

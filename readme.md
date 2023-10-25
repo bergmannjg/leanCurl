@@ -39,6 +39,7 @@ def main : IO Unit := do
     curl_set_option curl (CurlOption.HTTPHEADER #["Content-Type: application/json", "Accept: application/json"])
     -- response data should be written to this buffer
     curl_set_option curl (CurlOption.WRITEDATA response)
+    curl_set_option curl (CurlOption.WRITEFUNCTION Curl.writeBytes)
     -- perfom the network transfer 
     curl_easy_perform curl
 

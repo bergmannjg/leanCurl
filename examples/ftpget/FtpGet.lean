@@ -24,6 +24,7 @@ def main : IO Unit := do
     curl_set_option curl (CurlOption.USERPWD "demo:password")
     curl_set_option curl (CurlOption.VERBOSE 1)
     curl_set_option curl (CurlOption.WRITEDATA response)
+    curl_set_option curl (CurlOption.WRITEFUNCTION Curl.writeBytes)
     curl_easy_perform curl
 
     let bytes ← response.get

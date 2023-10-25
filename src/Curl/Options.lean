@@ -18,17 +18,17 @@ inductive CurlOption  where
   | COPYPOSTFIELDS : String → CurlOption
   /-- This points to a linked list of headers. -/
   | HTTPHEADER : Array String → CurlOption
-  /-- The internal or given HeaderFunction writes data to this Buffer.
+  /-- The HeaderFunction writes data to this Buffer.
       Without this option data is written to stdout -/
   | HEADERDATA : IO.Ref IO.FS.Stream.Buffer → CurlOption
   /-- Function that will be called to write data to the Buffer. -/
   | HEADERFUNCTION : (IO.Ref IO.FS.Stream.Buffer -> ByteArray -> IO Unit) → CurlOption
-  /-- The internal or given WriteFunction writes data to this Buffer.
+  /-- The WriteFunction writes data to this Buffer.
       Without this option data is written to stdout -/
   | WRITEDATA : IO.Ref IO.FS.Stream.Buffer → CurlOption
   /-- Function that will be called to write data to the Buffer. -/
   | WRITEFUNCTION : (IO.Ref IO.FS.Stream.Buffer -> ByteArray -> IO Unit) → CurlOption
-  /-- The internal or given ReadFunction reads data from this Buffer. -/
+  /-- The ReadFunction reads data from this Buffer. -/
   | READDATA : IO.Ref IO.FS.Stream.Buffer → CurlOption
   /-- Function that will be called to read data from the Buffer. -/
   | READFUNCTION : (IO.Ref IO.FS.Stream.Buffer -> UInt32 -> IO ByteArray) → CurlOption

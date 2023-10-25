@@ -21,6 +21,7 @@ def main : IO Unit := do
     curl_set_option curl (CurlOption.FOLLOWLOCATION 1)
     curl_set_option curl (CurlOption.HTTPHEADER #["application/x-gzip"])
     curl_set_option curl (CurlOption.WRITEDATA response)
+    curl_set_option curl (CurlOption.WRITEFUNCTION Curl.writeBytes)
     curl_easy_perform curl
 
     let bytes ← response.get
