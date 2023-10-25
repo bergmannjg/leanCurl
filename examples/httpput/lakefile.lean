@@ -13,4 +13,5 @@ lean_lib HttpPut
 lean_exe httpput {
   buildType := buildType
   root := `HttpPut
+  moreLinkArgs := #[if System.Platform.isWindows then "C:\\Program Files\\Curl\\bin\\libcurl-x64.dll" else "/usr/lib/libcurl.so.4"]
 }

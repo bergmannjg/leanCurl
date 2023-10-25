@@ -23,6 +23,7 @@ def main : IO Unit := do
     let curl ← curl_easy_init
     curl_set_option curl (CurlOption.URL "https://dummyjson.com/products/add")
     curl_set_option curl (CurlOption.VERBOSE 0)
+    if System.Platform.isWindows then curl_set_option curl (CurlOption.CAINFO "C:\\Program Files\\Curl\\bin\\curl-ca-bundle.crt")
     curl_set_option curl (CurlOption.COPYPOSTFIELDS (toJson product).compress)
     curl_set_option curl (CurlOption.HTTPHEADER #["Content-Type: application/json", "Accept: application/json"])
     curl_set_option curl (CurlOption.WRITEDATA response)

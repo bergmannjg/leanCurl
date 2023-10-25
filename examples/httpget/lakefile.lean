@@ -13,4 +13,5 @@ lean_lib HttpGet
 lean_exe httpget {
   buildType := buildType
   root := `HttpGet
+  moreLinkArgs := #[if System.Platform.isWindows then "C:\\Program Files\\Curl\\bin\\libcurl-x64.dll" else "/usr/lib/libcurl.so.4"]
 }

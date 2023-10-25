@@ -44,6 +44,10 @@ inductive CurlOption  where
   | DIRLISTONLY : UInt64 → CurlOption
   /-- follow HTTP 3xx redirects -/
   | FOLLOWLOCATION : UInt64 → CurlOption
+  /-- Set if we should verify the peer in ssl handshake, set 1 to verify. -/
+  | SSL_VERIFYPEER : UInt64 → CurlOption
+  /-- The CApath or CAfile used to validate the peer certificate, this option is used only if SSL_VERIFYPEER is true. -/
+  | CAINFO : String → CurlOption
   /-- Maximum number of http redirects to follow -/
   | MAXREDIRS : UInt64 → CurlOption
   /-- "name" to use when fetching.  -/

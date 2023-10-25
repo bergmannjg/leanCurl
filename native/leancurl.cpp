@@ -46,6 +46,7 @@ static Context * context_get_handle(lean_object * hcurl) {
 
 extern "C" LEAN_EXPORT lean_object* lean_curl_easy_init () {
     if (g_curl_handle_external_class == nullptr) {
+        curl_global_init(CURL_GLOBAL_ALL);
         g_curl_handle_external_class = lean_register_external_class(curl_handle_finalizer, curl_handle_foreach);
     }
 

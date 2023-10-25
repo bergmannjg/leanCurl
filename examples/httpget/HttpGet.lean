@@ -17,6 +17,7 @@ def main : IO Unit := do
     let curl ← curl_easy_init
     curl_set_option curl (CurlOption.URL "https://github.com/leanprover/lean4/archive/refs/tags/v4.0.0.tar.gz")
     curl_set_option curl (CurlOption.VERBOSE 1)
+    if System.Platform.isWindows then curl_set_option curl (CurlOption.CAINFO "C:\\Program Files\\Curl\\bin\\curl-ca-bundle.crt")
     curl_set_option curl (CurlOption.FOLLOWLOCATION 1)
     curl_set_option curl (CurlOption.HTTPHEADER #["application/x-gzip"])
     curl_set_option curl (CurlOption.WRITEDATA response)

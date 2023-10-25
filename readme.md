@@ -5,20 +5,20 @@
 Status:
 
 * compiles with libcurl 7.68.0,
-* tested on Ubuntu 20.04,
+* tested on Ubuntu 20.04 and Windows 11,
 * only a few Curl options are implemented, see [Options](src/Curl/Options.lean).
 
 ## Installation
 
 Installation steps:
 
-* install the libcurl shared library (on Ubuntu e.g. with `apt-get install libcurl4`)
+* install the libcurl shared library (see [curl Download](https://curl.se/download.html))
 * execute lake build
 
 Lake configuration arguments:
 
-* *libcurlSharedLib*, default is */usr/lib/libcurl.so.4*
-* *libcurlIncludeDir*, default is *"native/curl-7.68.0*
+* *libcurlSharedLib*, path to the libcurl shared library,
+* *libcurlIncludeDir*, path to the libcurl include directory.
 
 ## Examples
 
@@ -47,6 +47,14 @@ def main : IO Unit := do
     IO.println s!"response: {String.fromUTF8Unchecked bytes.data}"
 
 ```
+
+The corresponding curl command is
+
+```sh
+curl -d "{\"title\": \"curl\"}" https://dummyjson.com/products/add
+```
+
+The [--libcurl](https://everything.curl.dev/libcurl/libcurl) option displays the correspondence.
 
 Example projects:
 
