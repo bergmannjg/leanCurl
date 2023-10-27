@@ -1,5 +1,6 @@
 import Curl.Options
 import Curl.Extern
+import Curl.CurlM
 
 open Lean
 
@@ -8,13 +9,13 @@ open Lean
 namespace Curl
 
 /-- default CurlOption.WRITEFUNCTION -/
-def writeBytes (r : IO.Ref IO.FS.Stream.Buffer) (bytes : ByteArray) : IO Unit :=
+def writeBytes (r : IO.Ref IO.FS.Stream.Buffer) (bytes : ByteArray) : BaseIO Unit :=
   -- see IO.FS.Stream.ofBuffer
   r.modify fun b =>
     { b with data := bytes.copySlice 0 b.data b.pos bytes.size false, pos := b.pos + bytes.size }
 
 /-- default CurlOption.HEADERFUNCTION -/
-def readBytes (r : IO.Ref IO.FS.Stream.Buffer) (n : UInt32) : IO ByteArray :=
+def readBytes (r : IO.Ref IO.FS.Stream.Buffer) (n : UInt32) : BaseIO ByteArray :=
   -- see IO.FS.Stream.ofBuffer
   r.modifyGet fun b =>
     let n' := if b.pos + n.toNat < b.data.size then n.toNat else b.data.size - b.pos
@@ -22,13 +23,13 @@ def readBytes (r : IO.Ref IO.FS.Stream.Buffer) (n : UInt32) : IO ByteArray :=
     (data, { b with pos := b.pos + data.size })
 
 /-- Get curl version -/
-def curl_version : IO String := Extern.curl_version
+def curl_version : CurlIO String := Extern.curl_version
 
 /-- Start a libcurl easy session -/
-def curl_easy_init : IO Handle := Extern.curl_easy_init
+def curl_easy_init : CurlIO Handle := Extern.curl_easy_init
 
 /-- Set curl option -/
-def curl_set_option (curl: Curl.Handle) (opt : CurlOption) : IO Unit := do
+def curl_set_option (curl: Curl.Handle) (opt : CurlOption) : CurlIO Unit := do
   --curl opt types
   let lp : UInt32 := 0
   let sp : UInt32 := 10000
@@ -60,4 +61,4 @@ def curl_set_option (curl: Curl.Handle) (opt : CurlOption) : IO Unit := do
   | CurlOption.SSH_KNOWNHOSTS s => pure (← Extern.curl_easy_setopt_string curl (sp + 183) s)
 
 /-- Perform a network transfer -/
-def curl_easy_perform (h : Handle) : IO Unit := Extern.curl_easy_perform h
+def curl_easy_perform (h : Handle) : CurlIO Unit := Extern.curl_easy_perform h

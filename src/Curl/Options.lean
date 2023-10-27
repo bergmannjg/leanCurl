@@ -1,3 +1,5 @@
+import Curl.CurlM
+
 /-! Curl options -/
 
 namespace Curl
@@ -22,16 +24,16 @@ inductive CurlOption  where
       Without this option data is written to stdout -/
   | HEADERDATA : IO.Ref IO.FS.Stream.Buffer → CurlOption
   /-- Function that will be called to write data to the Buffer. -/
-  | HEADERFUNCTION : (IO.Ref IO.FS.Stream.Buffer -> ByteArray -> IO Unit) → CurlOption
+  | HEADERFUNCTION : (IO.Ref IO.FS.Stream.Buffer -> ByteArray -> BaseIO Unit) → CurlOption
   /-- The WriteFunction writes data to this Buffer.
       Without this option data is written to stdout -/
   | WRITEDATA : IO.Ref IO.FS.Stream.Buffer → CurlOption
   /-- Function that will be called to write data to the Buffer. -/
-  | WRITEFUNCTION : (IO.Ref IO.FS.Stream.Buffer -> ByteArray -> IO Unit) → CurlOption
+  | WRITEFUNCTION : (IO.Ref IO.FS.Stream.Buffer -> ByteArray -> BaseIO Unit) → CurlOption
   /-- The ReadFunction reads data from this Buffer. -/
   | READDATA : IO.Ref IO.FS.Stream.Buffer → CurlOption
   /-- Function that will be called to read data from the Buffer. -/
-  | READFUNCTION : (IO.Ref IO.FS.Stream.Buffer -> UInt32 -> IO ByteArray) → CurlOption
+  | READFUNCTION : (IO.Ref IO.FS.Stream.Buffer -> UInt32 -> BaseIO ByteArray) → CurlOption
   /-- Custom request, for customizing the get command like HTTP: DELETE, TRACE and others. -/
   | CUSTOMREQUEST : String → CurlOption
   /-- talk a lot -/
