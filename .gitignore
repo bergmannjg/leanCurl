@@ -1,2 +1,4 @@
 /lake-packages/*
 **/build/*
+compile_flags.txt
+.vscode/
