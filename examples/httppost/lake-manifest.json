@@ -1,5 +1,11 @@
-{"version": 5,
- "packagesDir": "lake-packages",
+{"version": 7,
+ "packagesDir": ".lake/packages",
  "packages":
- [{"path":
-   {"opts": {}, "name": "Curl", "inherited": false, "dir": "./../../"}}]}
+ [{"type": "path",
+   "name": "Curl",
+   "manifestFile": "lake-manifest.json",
+   "inherited": false,
+   "dir": "./../../",
+   "configFile": "lakefile.lean"}],
+ "name": "httppost",
+ "lakeDir": ".lake"}
