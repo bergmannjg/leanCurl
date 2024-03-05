@@ -13,7 +13,7 @@ def libcurlSharedLib := match get_config? libcurlSharedLib with
                         | none =>
                             if System.Platform.isWindows
                             then "C:\\Program Files\\Curl\\bin\\libcurl-x64.dll"
-                            else "/usr/lib/libcurl.so.4"
+                            else "-lcurl"
 def libcurlIncludeDir := match get_config? libcurlIncludeDir with | some v => v | none => "native/curl-" ++ libcurlVersion
 
 def buildType := match get_config? buildType with | some "debug" => Lake.BuildType.debug | _ => Lake.BuildType.release
