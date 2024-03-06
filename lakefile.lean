@@ -7,12 +7,19 @@ open Lake DSL
   require Curl from "..." with NameMap.empty |>.insert "libcurlSharedLib" "/usr/lib/libcurl.so.4"
 -/
 
+def libcurlPath := "/lib/x86_64-linux-gnu/libcurl.so.4"
+
+-- ad hoc check if running in a conatiner
+def libcurlPathExists : Bool :=
+  run_io (System.FilePath.pathExists libcurlPath)
+
 def libcurlVersion := match get_config? libcurlVersion with | some v => v | none => "7.68.0"
 def libcurlSharedLib := match get_config? libcurlSharedLib with
                         | some v => v
                         | none =>
                             if System.Platform.isWindows
                             then "C:\\Program Files\\Curl\\bin\\libcurl-x64.dll"
+                            else if libcurlPathExists then libcurlPath
                             else "-lcurl"
 def libcurlIncludeDir := match get_config? libcurlIncludeDir with | some v => v | none => "native/curl-" ++ libcurlVersion
 
