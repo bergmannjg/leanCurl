@@ -39,8 +39,9 @@ def get_should_be_equal (url : String) (file : String) : IO Unit := do
   curl_easy_perform curl
 
   let headers := String.fromUTF8Unchecked (← h.get).data
-  IO.println s!"headers: size {(headers.splitOn "\r\n").length}"
-
+  let headerdata := Curl.getHeaderData headers
+  IO.println s!"headerdata.length: {headerdata.length}"
+  List.forM headerdata (fun hd => IO.println s!"headerdata: {hd.version} {hd.status} fields {hd.fields.length}")
   let response := String.fromUTF8Unchecked (← r.get).data
   let content ← IO.FS.readFile file
 
