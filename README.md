@@ -64,3 +64,4 @@ Example projects:
 * [httpput](examples/httpput/)
 * [httpdelete](examples/httpdelete/)
 * [ftpget](examples/ftpget//)
+* [reservoir-index](examples/reservoir-index//)

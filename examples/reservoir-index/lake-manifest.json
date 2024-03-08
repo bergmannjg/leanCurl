@@ -1,0 +1,11 @@
+{"version": 7,
+ "packagesDir": ".lake/packages",
+ "packages":
+ [{"type": "path",
+   "name": "Curl",
+   "manifestFile": "lake-manifest.json",
+   "inherited": false,
+   "dir": "./../../",
+   "configFile": "lakefile.lean"}],
+ "name": "reservoirindex",
+ "lakeDir": ".lake"}
