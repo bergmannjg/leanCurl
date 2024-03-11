@@ -6,7 +6,7 @@ Status:
 
 * compiles with libcurl 7.68.0,
 * tested on Ubuntu 20.04 and Windows 11,
-* only a few Curl options are implemented, see [Options](src/Curl/Options.lean).
+* only a few Curl options are implemented, see [Options](https://github.com/bergmannjg/leanCurl/blob/main/src/Curl/Options.lean).
 
 ## Installation
 
@@ -59,9 +59,9 @@ The [--libcurl](https://everything.curl.dev/libcurl/libcurl) option displays the
 
 Example projects:
 
-* [httpget](examples/httpget/)
-* [httppost](examples/httppost/)
-* [httpput](examples/httpput/)
-* [httpdelete](examples/httpdelete/)
-* [ftpget](examples/ftpget//)
-* [reservoir-index](examples/reservoir-index//)
+* [httpget](https://github.com/bergmannjg/leanCurl/tree/main/examples/httpget/)
+* [httppost](https://github.com/bergmannjg/leanCurl/tree/main/examples/httppost/)
+* [httpput](https://github.com/bergmannjg/leanCurl/tree/main/examples/httpput/)
+* [httpdelete](https://github.com/bergmannjg/leanCurl/tree/main/examples/httpdelete/)
+* [ftpget](https://github.com/bergmannjg/leanCurl/tree/main/examples/ftpget//)
+* [reservoir-index](https://github.com/bergmannjg/leanCurl/tree/main/examples/reservoir-index//)
