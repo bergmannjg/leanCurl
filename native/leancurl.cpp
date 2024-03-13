@@ -4,45 +4,6 @@
 #include <lean/lean.h>
 #include <curl.h>
 
-/* todo: doesn't work in windows 11
-extern "C" LEAN_SHARED lean_obj_res lean_mk_curl_error_init_error(uint32_t);
-extern "C" LEAN_SHARED lean_obj_res lean_mk_curl_error_setopt_error(uint32_t, uint32_t);
-extern "C" LEAN_SHARED lean_obj_res lean_mk_curl_error_perform_error(uint32_t);
-*/
-
-// copied from intermediary results
-
-LEAN_EXPORT lean_object* lean_mk_curl_error_init_error(uint32_t x_1) {
-_start:
-{
-lean_object* x_2; 
-x_2 = lean_alloc_ctor(0, 0, 4);
-lean_ctor_set_uint32(x_2, 0, x_1);
-return x_2;
-}
-}
-
-LEAN_EXPORT lean_object* lean_mk_curl_error_setopt_error(uint32_t x_1, uint32_t x_2) {
-_start:
-{
-lean_object* x_3; 
-x_3 = lean_alloc_ctor(1, 0, 8);
-lean_ctor_set_uint32(x_3, 0, x_1);
-lean_ctor_set_uint32(x_3, 4, x_2);
-return x_3;
-}
-}
-
-LEAN_EXPORT lean_object* lean_mk_curl_error_perform_error(uint32_t x_1) {
-_start:
-{
-lean_object* x_2; 
-x_2 = lean_alloc_ctor(2, 0, 4);
-lean_ctor_set_uint32(x_2, 0, x_1);
-return x_2;
-}
-}
-
 extern "C" LEAN_EXPORT lean_object* lean_curl_version () {
     curl_version_info_data* ver = curl_version_info(CURLVERSION_NOW);
     return lean_io_result_mk_ok(lean_mk_string(ver->version));
@@ -93,7 +54,7 @@ extern "C" LEAN_EXPORT lean_object* lean_curl_easy_init () {
 
     Context *context = (Context *)malloc(sizeof *context);
 
-    if (!context) return lean_io_result_mk_error(lean_mk_curl_error_init_error(CURLE_FAILED_INIT));
+    if (!context) return lean_io_result_mk_error(lean_box(CURLE_FAILED_INIT));
 
     context->curl = curl;
     context->headerfunction = NULL;
@@ -108,7 +69,7 @@ extern "C" LEAN_EXPORT lean_object* lean_curl_easy_init () {
     fprintf(stderr, "curl_easy_init %p\n", curl);
 #endif
 
-    if (!curl) return lean_io_result_mk_error(lean_mk_curl_error_init_error(CURLE_FAILED_INIT));
+    if (!curl) return lean_io_result_mk_error(lean_box(CURLE_FAILED_INIT));
     else return lean_io_result_mk_ok(context_wrap_handle(context));
 }
 
@@ -146,7 +107,7 @@ extern "C" LEAN_EXPORT lean_object* lean_curl_easy_perform (b_lean_obj_arg h) {
     }
 
     if (res == CURLE_OK) return lean_io_result_mk_ok(lean_box(0));
-    else return lean_io_result_mk_error(lean_mk_curl_error_perform_error(res));
+    else return lean_io_result_mk_error(lean_box(res));
 }
 
 extern "C" LEAN_EXPORT lean_object* lean_curl_easy_setopt_long (b_lean_obj_arg h, uint32_t opt, uint32_t v) {
@@ -159,7 +120,7 @@ extern "C" LEAN_EXPORT lean_object* lean_curl_easy_setopt_long (b_lean_obj_arg h
 #endif
 
     if (res == CURLE_OK) return lean_io_result_mk_ok(lean_box(0));
-    else return lean_io_result_mk_error(lean_mk_curl_error_setopt_error(res, opt));
+    else return lean_io_result_mk_error(lean_box(res));
 }
 
 extern "C" LEAN_EXPORT lean_object* lean_curl_easy_setopt_string (b_lean_obj_arg h, uint32_t opt, lean_object *str) {
@@ -173,7 +134,7 @@ extern "C" LEAN_EXPORT lean_object* lean_curl_easy_setopt_string (b_lean_obj_arg
 #endif
 
     if (res == CURLE_OK) return lean_io_result_mk_ok(lean_box(0));
-    else return lean_io_result_mk_error(lean_mk_curl_error_setopt_error(res, opt));
+    else return lean_io_result_mk_error(lean_box(res));
 }
 
 extern "C" LEAN_EXPORT lean_object* lean_curl_easy_setopt_strings (b_lean_obj_arg h, uint32_t opt, b_lean_obj_arg o) {
@@ -197,9 +158,9 @@ extern "C" LEAN_EXPORT lean_object* lean_curl_easy_setopt_strings (b_lean_obj_ar
         if (res == CURLE_OK) {
             context->slist = list;
             return lean_io_result_mk_ok(lean_box(0));
-        } else return lean_io_result_mk_error(lean_mk_curl_error_setopt_error(res, opt));
+        } else return lean_io_result_mk_error(lean_box(res));
     } else {
-        return lean_io_result_mk_error(lean_mk_curl_error_setopt_error(CURLE_BAD_FUNCTION_ARGUMENT, opt));
+        return lean_io_result_mk_error(lean_box(CURLE_BAD_FUNCTION_ARGUMENT));
     }
 }
 
@@ -308,7 +269,7 @@ static lean_object* lean_curl_easy_setopt_data (b_lean_obj_arg h, CURLoption opt
 #endif
 
     if (res == CURLE_OK) return lean_io_result_mk_ok(lean_box(0));
-    else return lean_io_result_mk_error(lean_mk_curl_error_setopt_error(res, opt));
+    else return lean_io_result_mk_error(lean_box(res));
 }
 
 extern "C" LEAN_EXPORT lean_object* lean_curl_easy_setopt_readdata (b_lean_obj_arg h, lean_object *r) {
@@ -348,7 +309,7 @@ static lean_object* lean_curl_easy_setopt_function (b_lean_obj_arg h, CURLoption
 #endif
 
     if (res == CURLE_OK) return lean_io_result_mk_ok(lean_box(0));
-    else return lean_io_result_mk_error(lean_mk_curl_error_setopt_error(res, opt));
+    else return lean_io_result_mk_error(lean_box(res));
 }
 
 extern "C" LEAN_EXPORT lean_object* lean_curl_easy_setopt_readfunction (b_lean_obj_arg h, lean_object *f) {
