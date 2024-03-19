@@ -29,19 +29,18 @@ def main : IO Unit := do
     -- make IO.Ref Stream.Buffer for response data
     let response ← IO.mkRef { : IO.FS.Stream.Buffer}
 
-    -- init curl handle, leanCurl is responsible for calling curl_easy_cleanup 
-    let curl ← curl_easy_init
-    -- set Url
-    curl_set_option curl (CurlOption.URL "https://dummyjson.com/products/add")
-    -- set HTTP POST data
-    curl_set_option curl (COPYPOSTFIELDS "{\"title\": \"curl\"}")
-    -- set HttpHeader
-    curl_set_option curl (CurlOption.HTTPHEADER #["Content-Type: application/json", "Accept: application/json"])
-    -- response data should be written to this buffer
-    curl_set_option curl (CurlOption.WRITEDATA response)
-    curl_set_option curl (CurlOption.WRITEFUNCTION Curl.writeBytes)
     -- perfom the network transfer 
-    curl_easy_perform curl
+    curl_easy_perform_with_options #[
+        -- set Url
+        CurlOption.URL "https://dummyjson.com/products/add",
+        -- set HTTP POST data
+        CurlOption.COPYPOSTFIELDS "{\"title\": \"curl\"}",
+        -- set HttpHeader
+        CurlOption.HTTPHEADER #["Content-Type: application/json", "Accept: application/json"],
+        -- response data should be written to this buffer
+        CurlOption.WRITEDATA response,
+        CurlOption.WRITEFUNCTION Curl.writeBytes
+    ]
 
     -- get Stream.Buffer of IO.Ref 
     let bytes ← response.get

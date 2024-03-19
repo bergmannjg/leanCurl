@@ -81,3 +81,9 @@ def curl_set_option (curl: Curl.Handle) (opt : CurlOption) : CurlIO Unit := do
 /-- Perform a network transfer -/
 def curl_easy_perform (h : Handle) : CurlIO Unit :=
   toPerformError (Extern.curl_easy_perform h)
+
+/-- Perform a network transfer -/
+def curl_easy_perform_with_options (options : Array CurlOption) : CurlIO Unit := do
+  let curl ← curl_easy_init
+  options |> Array.forM (fun option => curl_set_option curl option)
+  curl_easy_perform curl
