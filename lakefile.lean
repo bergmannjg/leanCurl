@@ -7,11 +7,13 @@ open Lake DSL
   require Curl from "..." with NameMap.empty |>.insert "libcurlSharedLib" "/usr/lib/libcurl.so.4"
 -/
 
-def libcurlPath := "/lib/x86_64-linux-gnu/libcurl.so.4"
+-- try find path to libcurl of curl executable
+def libPathOfCurlExec? : IO $ Option String := do
+  let p ← IO.Process.run { cmd := "/bin/sh", args := #["-c", "ldd $(which curl) | grep libcurl | awk '{ print $3 }'"]}
+  pure (if p.trim.isEmpty then none else some p.trim)
 
--- ad hoc check if running in a conatiner
-def libcurlPathExists : Bool :=
-  run_io (System.FilePath.pathExists libcurlPath)
+def libcurlPath : String :=
+  match run_io (libPathOfCurlExec?) with | some p => p | none => "-lcurl"
 
 def libcurlVersion := match get_config? libcurlVersion with | some v => v | none => "7.68.0"
 def libcurlSharedLib := match get_config? libcurlSharedLib with
@@ -19,14 +21,13 @@ def libcurlSharedLib := match get_config? libcurlSharedLib with
                         | none =>
                             if System.Platform.isWindows
                             then "C:\\Program Files\\Curl\\bin\\libcurl-x64.dll"
-                            else if libcurlPathExists then libcurlPath
-                            else "-lcurl"
+                            else libcurlPath
+
 def libcurlIncludeDir := match get_config? libcurlIncludeDir with | some v => v | none => "native/curl-" ++ libcurlVersion
 
 def buildType := match get_config? buildType with | some "debug" => Lake.BuildType.debug | _ => Lake.BuildType.release
 
 package Curl {
-  moreLinkArgs := #[libcurlSharedLib]
 }
 
 @[default_target] lean_lib Curl  {
@@ -39,6 +40,7 @@ lean_exe test {
   srcDir := "test"
   buildType := buildType
   root := `Test
+  moreLinkArgs := #[libcurlSharedLib]
 }
 
 target leancurl.o pkg : FilePath := do
@@ -53,3 +55,8 @@ extern_lib libleancurl pkg := do
   let name := nameToStaticLib "leancurl"
   let leancurl ← fetch <| pkg.target ``leancurl.o
   buildStaticLib (pkg.nativeLibDir / name) #[leancurl]
+
+-- print libcurlSharedLib
+post_update do
+  IO.println s!"path to libcurl: {libcurlSharedLib}"
+  IO.println s!"please add path to 'moreLinkArgs' option"

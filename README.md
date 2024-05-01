@@ -12,8 +12,10 @@ Status:
 
 Installation steps:
 
-* install the libcurl shared library (see [curl Download](https://curl.se/download.html))
-* execute lake build
+* if curl is installed
+  * leanCurl uses the corresponding libcurl shared library 
+  * otherwise install curl or the libcurl shared library (see [curl Download](https://curl.se/download.html))
+* execute lake update
 
 Lake configuration arguments:
 
