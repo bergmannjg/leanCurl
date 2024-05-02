@@ -32,15 +32,11 @@ def main : IO Unit := do
     let response ← IO.mkRef { : IO.FS.Stream.Buffer}
 
     -- perfom the network transfer 
-    curl_easy_perform_with_options #[
-        -- set Url
-        CurlOption.URL "https://dummyjson.com/products/add",
-        -- set HTTP POST data
-        CurlOption.COPYPOSTFIELDS "{\"title\": \"curl\"}",
-        -- set HttpHeader
-        CurlOption.HTTPHEADER #["Content-Type: application/json", "Accept: application/json"],
-        -- response data should be written to this buffer
-        CurlOption.WRITEDATA response,
+    curl_easy_perform_with_options #[       
+        CurlOption.URL "https://dummyjson.com/products/add", -- set Url        
+        CurlOption.COPYPOSTFIELDS "{\"title\": \"curl\"}", -- set HTTP POST data
+        CurlOption.HTTPHEADER #["Content-Type: application/json", "Accept: application/json"], -- set HttpHeader       
+        CurlOption.WRITEDATA response, -- response data should be written to this buffer
         CurlOption.WRITEFUNCTION Curl.writeBytes
     ]
 
@@ -58,7 +54,7 @@ curl -d "{\"title\": \"curl\"}" https://dummyjson.com/products/add
 
 The [--libcurl](https://everything.curl.dev/libcurl/libcurl) option displays the correspondence.
 
-Example projects:
+Example projects (see [build-examples.sh](./build-examples.sh)):
 
 * [httpget](https://github.com/bergmannjg/leanCurl/tree/main/examples/httpget/)
 * [httppost](https://github.com/bergmannjg/leanCurl/tree/main/examples/httppost/)
