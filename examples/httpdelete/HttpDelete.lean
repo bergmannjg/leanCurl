@@ -26,6 +26,6 @@ def main : IO Unit := do
     curl_easy_perform curl
 
     let bytes ← response.get
-    IO.println s!"response: {String.fromUTF8Unchecked bytes.data}"
+    IO.println s!"response: {String.fromUTF8! bytes.data}"
 
   catch e => IO.println s!"error: {e}"

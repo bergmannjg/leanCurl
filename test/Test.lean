@@ -21,7 +21,7 @@ def put_should_contain (s : String) : IO Unit := do
     curl_set_option curl (CurlOption.WRITEFUNCTION Curl.writeBytes)
     curl_easy_perform curl
 
-    let response := String.fromUTF8Unchecked (← r.get).data
+    let response := String.fromUTF8! (← r.get).data
     IO.println s!"response: {response.length} length, contains '{s}': {(response.splitOn s).length == 2}"
 
 def get_should_be_equal (url : String) (file : String) : IO Unit := do
@@ -38,11 +38,11 @@ def get_should_be_equal (url : String) (file : String) : IO Unit := do
   curl_set_option curl (CurlOption.HEADERFUNCTION Curl.writeBytes)
   curl_easy_perform curl
 
-  let headers := String.fromUTF8Unchecked (← h.get).data
+  let headers := String.fromUTF8! (← h.get).data
   let headerdata := Curl.getHeaderData headers
   IO.println s!"headerdata.length: {headerdata.length}"
   List.forM headerdata (fun hd => IO.println s!"headerdata: {hd.version} {hd.status} fields {hd.fields.length}")
-  let response := String.fromUTF8Unchecked (← r.get).data
+  let response := String.fromUTF8! (← r.get).data
   let content ← IO.FS.readFile file
 
   IO.println s!"response: {response.length} bytes, content {content.length} bytes, equal: {response == content}"

@@ -4,7 +4,7 @@ open Lake DSL
 /-
   example of require statement for packages using Curl
 
-  require Curl from "..." with NameMap.empty |>.insert "libcurlSharedLib" "/usr/lib/libcurl.so.4"
+  require Curl from "..." with NameMap.empty |>.insert (Name.mkSimple "libcurlSharedLib") "/usr/lib/libcurl.so.4"
 -/
 
 -- try find path to libcurl of curl executable
@@ -48,12 +48,12 @@ target leancurl.o pkg : FilePath := do
   let defines := if buildType = .debug then #["-DDEBUG"] else #[]
   let oFile := pkg.buildDir / "native/" / "leancurl.o"
   let srcJob ← inputFile <| pkg.dir / "native/" / "leancurl.cpp"
-  let flags := #["-I", (← getLeanIncludeDir).toString, "-I", dirPrefix ++ libcurlIncludeDir, "-fPIC"] ++ defines
-  buildO "leancurl.cpp" oFile srcJob flags
+  let flags := #["-I", (← getLeanIncludeDir).toString, "-I", dirPrefix ++ libcurlIncludeDir] ++ defines
+  buildO oFile srcJob flags #["-fPIC"]
 
 extern_lib libleancurl pkg := do
   let name := nameToStaticLib "leancurl"
-  let leancurl ← fetch <| pkg.target ``leancurl.o
+  let leancurl ← leancurl.o.fetch
   buildStaticLib (pkg.nativeLibDir / name) #[leancurl]
 
 -- print libcurlSharedLib

@@ -42,11 +42,11 @@ def loadToolchain (curl : Handle) (project : String) (branch : String) : IO $ Op
 
     IO.println s!"loaded {url}"
 
-    let headers := String.fromUTF8Unchecked (← h.get).data
+    let headers := String.fromUTF8! (← h.get).data
     if List.any (Curl.getHeaderData headers) (·.status = 200)
     then
       let bytes ← response.get
-      pure (String.fromUTF8Unchecked bytes.data)
+      pure (String.fromUTF8! bytes.data)
     else pure none
 
 def loadToolchains (curl : Handle) (archive : System.FilePath) : IO $ Array String := do
@@ -85,7 +85,7 @@ def loadArchive (curl : Handle) : IO System.FilePath := do
     curl_set_option curl (CurlOption.HEADERFUNCTION Curl.writeBytes)
     curl_easy_perform curl
 
-    let headers := String.fromUTF8Unchecked (← h.get).data
+    let headers := String.fromUTF8! (← h.get).data
     if List.any (Curl.getHeaderData headers) (·.status = 200)
     then
       let bytes ← response.get
