@@ -35,7 +35,7 @@ package Curl {
   srcDir := "src"
 }
 
-@[default_target]
+@[test_runner]
 lean_exe test {
   srcDir := "test"
   buildType := buildType
