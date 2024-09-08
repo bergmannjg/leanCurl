@@ -21,7 +21,21 @@ concurrency:
 
 jobs:
 
-  build:
+  build-on-macos:
+    runs-on: macos-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+      - name: reinstall curl
+        run: |
+          brew reinstall curl
+      - name: build and test
+        uses: leanprover/lean-action@v1
+        with:
+            use-mathlib-cache: false
+            use-github-cache: false
+
+  build-on-ubuntu:
     runs-on: ubuntu-latest
     steps:
       - name: checkout
@@ -30,3 +44,4 @@ jobs:
         uses: leanprover/lean-action@v1
         with:
             use-mathlib-cache: false
+            use-github-cache: false

@@ -22,6 +22,12 @@ Lake configuration arguments:
 * *libcurlSharedLib*, path to the libcurl shared library,
 * *libcurlIncludeDir*, path to the libcurl include directory.
 
+To complile on macOS, you have to reinstall curl (linking to the pre-installed libcurl library doesn't work)
+
+```sh
+ brew reinstall curl
+ ```
+
 ## Examples
 
 Post Json data:
