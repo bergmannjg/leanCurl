@@ -9,6 +9,9 @@ def put_should_contain (s : String) : IO Unit := do
     let buffer : IO.FS.Stream.Buffer := {data := String.toUTF8 ("{\"title\": \"" ++ s ++ "\"}"), pos := 0}
     let upload ← IO.mkRef buffer
 
+    let version ← curl_version
+    IO.println s!"curl version {version}"
+
     let curl ← curl_easy_init
     curl_set_option curl (CurlOption.URL "https://dummyjson.com/products/1")
     curl_set_option curl (CurlOption.VERBOSE 0)

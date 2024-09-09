@@ -14,7 +14,6 @@ for dir in $(find examples/ -mindepth 1 -maxdepth 1 -type d); do
     echo "dir ${dir}" \
 		&& pushd "${dir}" \
 		&& rm -rf .lake \
-		&& lake -KlibCurl=${LIBCURL} update \
-		&& lake build \
+		&& lake -KlibCurl=${LIBCURL} build \
 		&& popd;
 done
