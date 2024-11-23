@@ -12,7 +12,6 @@ open Curl
 -/
 
 open IO.Process
-open Lean
 
 structure Source where
   repoUrl : String
