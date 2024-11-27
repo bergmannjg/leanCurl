@@ -9,8 +9,6 @@ def buildType := match get_config? buildType with | some "debug" => Lake.BuildTy
 
 require Curl from "../../" with NameMap.empty |>.insert (Name.mkSimple "buildType") (if buildType = .debug then "debug" else "release")
 
-lean_lib HttpPut
-
 @[default_target]
 lean_exe httpput {
   buildType := buildType
