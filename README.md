@@ -58,7 +58,7 @@ The corresponding curl command is
 curl -d "{\"title\": \"curl\"}" https://dummyjson.com/products/add
 ```
 
-The [--libcurl](https://everything.curl.dev/libcurl/libcurl) option displays the correspondence.
+The [--libcurl](https://everything.curl.dev/libcurl/--libcurl) option displays the correspondence.
 
 Example projects (see [build-examples.sh](./build-examples.sh)):
 

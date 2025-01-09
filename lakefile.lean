@@ -54,7 +54,7 @@ lean_exe test {
   moreLinkArgs := #[libcurlSharedLib]
 }
 
-target leancurl.o pkg : FilePath := do
+target leancurl.o pkg : System.FilePath := do
   let dirPrefix := if System.FilePath.isAbsolute libcurlIncludeDir then "" else (pkg.srcDir.toString ++ "/")
   let defines := if buildType = .debug then #["-DDEBUG"] else #[]
   let oFile := pkg.buildDir / "native/" / "leancurl.o"
