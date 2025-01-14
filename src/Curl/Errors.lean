@@ -100,6 +100,7 @@ inductive ErrorCode
   | CURLE_AUTH_ERROR
   | CURLE_HTTP3
   | CURLE_UNKNOWN : UInt32 -> ErrorCode
+deriving BEq, Hashable
 
 instance : ToString ErrorCode where
   toString
@@ -201,10 +202,40 @@ instance : ToString ErrorCode where
     | .CURLE_HTTP3 => "CURLE_HTTP3"
     | .CURLE_UNKNOWN code => s!"CURLE_UNKNOWN, code {code}"
 
+inductive ErrorCodeM
+  | CURLM_OK
+  | CURLM_BAD_HANDLE
+  | CURLM_BAD_EASY_HANDLE
+  | CURLM_OUT_OF_MEMORY
+  | CURLM_INTERNAL_ERROR
+  | CURLM_BAD_SOCKET
+  | CURLM_UNKNOWN_OPTION
+  | CURLM_ADDED_ALREADY
+  | CURLM_RECURSIVE_API_CALL
+  | CURLM_WAKEUP_FAILURE
+  | CURLM_UNKNOWN : UInt32 -> ErrorCodeM
+deriving BEq, Hashable
+
+instance : ToString ErrorCodeM where
+  toString
+    | .CURLM_OK => "CURLM_OK"
+    | .CURLM_BAD_HANDLE => "CURLM_BAD_HANDLE"
+    | .CURLM_BAD_EASY_HANDLE => "CURLM_BAD_EASY_HANDLE"
+    | .CURLM_OUT_OF_MEMORY => "CURLM_OUT_OF_MEMORY"
+    | .CURLM_INTERNAL_ERROR => "CURLM_INTERNAL_ERROR"
+    | .CURLM_BAD_SOCKET => "CURLM_BAD_SOCKET"
+    | .CURLM_UNKNOWN_OPTION => "CURLM_UNKNOWN_OPTION"
+    | .CURLM_ADDED_ALREADY => "CURLM_ADDED_ALREADY"
+    | .CURLM_RECURSIVE_API_CALL => "CURLM_RECURSIVE_API_CALL"
+    | .CURLM_WAKEUP_FAILURE => "CURLM_WAKEUP_FAILURE"
+    | .CURLM_UNKNOWN code => s!"CURLM_UNKNOWN, code {code}"
+
 inductive Error
   | init (code : UInt32)
   | setopt (code : UInt32) (opt : UInt32)
   | perform (code : UInt32)
+  | initM (code : UInt32)
+  | performM (code : UInt32)
   deriving Inhabited
 
 namespace Error
@@ -308,10 +339,25 @@ namespace Error
     | 95 => .CURLE_HTTP3
     | code => .CURLE_UNKNOWN code
 
+  def ofCodeM : UInt32 -> ErrorCodeM
+    | 0 => .CURLM_OK
+    | 1 => .CURLM_BAD_HANDLE
+    | 2 => .CURLM_BAD_EASY_HANDLE
+    | 3 => .CURLM_OUT_OF_MEMORY
+    | 4 => .CURLM_INTERNAL_ERROR
+    | 5 => .CURLM_BAD_SOCKET
+    | 6 => .CURLM_UNKNOWN_OPTION
+    | 7 => .CURLM_ADDED_ALREADY
+    | 8 => .CURLM_RECURSIVE_API_CALL
+    | 9 => .CURLM_WAKEUP_FAILURE
+    | code => .CURLM_UNKNOWN code
+
   instance : ToString Curl.Error where
     toString
       | .init code =>  s!"easy_init failed (error code: {Curl.Error.ofCode code})"
       | .setopt code opt =>  s!"easy_setopt {opt} failed (error code: {Curl.Error.ofCode code})"
       | .perform code =>  s!"easy_perform failed (error code: {Curl.Error.ofCode code})"
+      | .initM code =>  s!"multi_init failed (error code: {Curl.Error.ofCodeM code})"
+      | .performM code =>  s!"multi_perform failed (error code: {Curl.Error.ofCodeM code})"
 
 end Error

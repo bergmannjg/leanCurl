@@ -1,6 +1,6 @@
 # leanCurl
 
-*leanCurl* is a [Lean 4](https://github.com/leanprover/lean4) package for the [libcurl Easy interface](https://curl.se/libcurl/).
+[Lean 4](https://github.com/leanprover/lean4) bindings to [libcurl](https://curl.se/libcurl/c/).
 
 Status:
 
@@ -67,4 +67,5 @@ Example projects (see [build-examples.sh](./build-examples.sh)):
 * [httpput](https://github.com/bergmannjg/leanCurl/tree/main/examples/httpput/)
 * [httpdelete](https://github.com/bergmannjg/leanCurl/tree/main/examples/httpdelete/)
 * [ftpget](https://github.com/bergmannjg/leanCurl/tree/main/examples/ftpget//)
+* [multi-double](https://github.com/bergmannjg/leanCurl/tree/main/examples/multi-double/)
 * [reservoir-index](https://github.com/bergmannjg/leanCurl/tree/main/examples/reservoir-index//)
