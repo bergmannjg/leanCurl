@@ -407,7 +407,7 @@ extern "C" LEAN_EXPORT lean_object * lean_curl_multi_add_handle(b_lean_obj_arg h
 	if (!added) {
       return lean_io_result_mk_error(lean_box(4)); // CURLM_INTERNAL_ERROR
     }
-
+	lean_inc(h);
     return lean_io_result_mk_ok(lean_box(0));
   } else
     return lean_io_result_mk_error(lean_box(res));
