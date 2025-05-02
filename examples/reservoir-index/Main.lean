@@ -1,7 +1,6 @@
 import Curl
 import Lean.Data.Json.Parser
 import Lean.Data.Json.FromToJson
-import Lean.Data.HashMap
 
 open Lean
 open Curl

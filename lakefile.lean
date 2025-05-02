@@ -65,7 +65,7 @@ target leancurl.o pkg : System.FilePath := do
 extern_lib libleancurl pkg := do
   let name := nameToStaticLib "leancurl"
   let leancurl ← leancurl.o.fetch
-  buildStaticLib (pkg.nativeLibDir / name) #[leancurl]
+  buildStaticLib (pkg.sharedLibDir / name) #[leancurl]
 
 -- print libcurlSharedLib
 post_update do

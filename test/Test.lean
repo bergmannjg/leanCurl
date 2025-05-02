@@ -81,6 +81,7 @@ def test_curl_multi (n : Nat ): IO Unit := do
 
 def main : IO Unit := do
   try
+    IO.println s!"lean version {Lean.versionString}"
     get_should_be_equal "https://raw.githubusercontent.com/leanprover/lean4/v4.0.0/RELEASES.md" "test/fixtures/lean4_v4.0.0_RELEASES.md"
     put_should_contain "curl"
     test_curl_multi 10
