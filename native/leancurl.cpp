@@ -258,11 +258,9 @@ size_t read_callback(char *ptr, size_t size, size_t nmemb, void *userdata)
     lean_inc(context->readfunction);
     lean_inc(context->readdata);
 
-    lean_object *res = lean_apply_3(context->readfunction, context->readdata, lean_box(size * nmemb), lean_box(0));   
+    lean_object *bytearray = lean_apply_3(context->readfunction, context->readdata, lean_box(size * nmemb), lean_box(0));   
 
-    lean_object* bytearray = lean_ctor_get(res, 0);
-
-    size_t len = 0;
+	size_t len = 0;
 
     if (lean_is_sarray(bytearray)) {
         len = lean_sarray_size(bytearray);

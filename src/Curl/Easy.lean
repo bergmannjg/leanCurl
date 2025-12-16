@@ -24,18 +24,18 @@ def readBytes (r : IO.Ref IO.FS.Stream.Buffer) (n : UInt32) : BaseIO ByteArray :
 
 private def toInitError (act : EIO UInt32 α) : EIO Curl.Error α :=
   fun s => match act s with
-  | EStateM.Result.error e s => EStateM.Result.error (Curl.Error.init e) s
-  | EStateM.Result.ok v s => EStateM.Result.ok v s
+  | EST.Out.error e s => EST.Out.error (Curl.Error.init e) s
+  | EST.Out.ok v s => EST.Out.ok v s
 
 private def toOptError (act : EIO UInt32 α) (opt : UInt32) : EIO Curl.Error α :=
   fun s => match act s with
-  | EStateM.Result.error e s => EStateM.Result.error (Curl.Error.setopt e opt) s
-  | EStateM.Result.ok v s => EStateM.Result.ok v s
+  | EST.Out.error e s => EST.Out.error (Curl.Error.setopt e opt) s
+  | EST.Out.ok v s => EST.Out.ok v s
 
 private def toPerformError (act : EIO UInt32 α) : EIO Curl.Error α :=
   fun s => match act s with
-  | EStateM.Result.error e s => EStateM.Result.error (Curl.Error.perform e) s
-  | EStateM.Result.ok v s => EStateM.Result.ok v s
+  | EST.Out.error e s => EST.Out.error (Curl.Error.perform e) s
+  | EST.Out.ok v s => EST.Out.ok v s
 
 /-- Get curl version -/
 def curl_version : EIO Curl.Error String :=

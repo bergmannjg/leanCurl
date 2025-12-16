@@ -10,13 +10,13 @@ namespace Curl
 
 private def toInitMError (act : EIO UInt32 α) : EIO Curl.Error α :=
   fun s => match act s with
-  | EStateM.Result.error e s => EStateM.Result.error (Curl.Error.initM e) s
-  | EStateM.Result.ok v s => EStateM.Result.ok v s
+  | EST.Out.error e s => EST.Out.error (Curl.Error.initM e) s
+  | EST.Out.ok v s => EST.Out.ok v s
 
 private def toPerformMError (act : EIO UInt32 α) : EIO Curl.Error α :=
   fun s => match act s with
-  | EStateM.Result.error e s => EStateM.Result.error (Curl.Error.performM e) s
-  | EStateM.Result.ok v s => EStateM.Result.ok v s
+  | EST.Out.error e s => EST.Out.error (Curl.Error.performM e) s
+  | EST.Out.ok v s => EST.Out.ok v s
 
 /-- Create a multi handle. -/
 def curl_multi_init : CurlIO HandleM :=
