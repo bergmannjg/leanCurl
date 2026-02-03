@@ -10,7 +10,7 @@ open Lake DSL
 -- try find path to libcurl of curl executable
 def libPathOfCurlExec? : IO $ Option String := do
   let p ← IO.Process.run { cmd := "/bin/sh", args := #["-c", "ldd $(which curl) | grep libcurl | awk '{ print $3 }'"]}
-  pure (if p.trim.isEmpty then none else some p.trim)
+  pure (if p.trimAscii.isEmpty then none else some p.trimAscii.toString)
 
 def libcurlPath : String :=
   match run_io (libPathOfCurlExec?) with | some p => p | none => "-lcurl"

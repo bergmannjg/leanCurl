@@ -26,18 +26,18 @@ def getHeaderData (headerData : String) : List HeaderData :=
         let arr := match hd with | some hd => hd :: arr | none => arr
         match s.splitOn " " with
         | version :: status :: _ =>
-          match status.trim.toNat? with
+          match status.trimAscii.toNat? with
           | some status => (some ⟨version, status, []⟩, arr)
           | _ => (hd, arr)
         | _ => (hd, arr)
       else
         let pos := s.find (· = ':')
-        if pos.byteIdx < s.length
+        if pos.offset.byteIdx < s.length
         then
-          let subs := s.toSubstring
-          let name := subs.extract ⟨0⟩ pos
-          let value := subs.extract (pos + ':') ⟨s.length⟩
-          let field := (name.toString.trim, value.toString.trim)
+          let subs := s.toRawSubstring
+          let name := subs.extract ⟨0⟩ pos.offset
+          let value := subs.extract (pos.offset + ':') ⟨s.length⟩
+          let field := (name.toString.trimAscii.toString, value.toString.trimAscii.toString)
           match hd with
           | some hd => (some {hd with fields := field :: hd.fields},  arr)
           | none => (hd, arr)

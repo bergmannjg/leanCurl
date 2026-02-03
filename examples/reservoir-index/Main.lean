@@ -62,7 +62,7 @@ def loadToolchains (curl : Handle) (archive : System.FilePath) : IO $ Array Stri
           let source := m.sources[0]'h
           let project := source.repoUrl.drop "https://github.com/".length
           match source.defaultBranch with
-          | some defaultBranch => pure (some (← loadToolchain curl project defaultBranch))
+          | some defaultBranch => pure (some (← loadToolchain curl project.toString defaultBranch))
           | _ => pure none
         else pure none)
 
@@ -101,7 +101,7 @@ def main : IO Unit := do
     let archive ← loadArchive curl
     let toolchains ← loadToolchains curl archive
     toolchains
-    |> Array.groupByKey (fun t => t.trim)
+    |> Array.groupByKey (fun t => t.trimAscii)
     |> Std.HashMap.toArray
     |> Array.map (fun (k, v) => (k, v.size))
     |> (fun arr => Array.qsort arr (lt := fun (a, _) (b, _) => a < b))
