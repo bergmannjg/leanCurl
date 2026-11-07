@@ -1,3 +1,7 @@
+module
+
+@[expose] public section
+
 /-! HeaderData utilities -/
 
 namespace Curl
