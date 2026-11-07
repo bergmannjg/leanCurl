@@ -1,4 +1,8 @@
-import Curl.Errors
+module
+
+public import Curl.Errors
+
+@[expose] public section
 
 /-! Foreign functions -/
 

@@ -1,6 +1,10 @@
-import Curl.Options
-import Curl.Extern
-import Curl.CurlM
+module
+
+public import Curl.Options
+public import Curl.Extern
+public import Curl.CurlM
+
+public section
 
 open Lean
 

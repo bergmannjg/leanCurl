@@ -1,4 +1,8 @@
-import Curl.CurlM
+module
+
+public import Curl.CurlM
+
+@[expose] public section
 
 /-! Curl options -/
 
