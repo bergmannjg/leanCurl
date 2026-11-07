@@ -6,6 +6,10 @@ Status:
 
 * compiles with libcurl 7.68.0,
 * tested on Ubuntu 20.04 and Windows 11,
+* built with Lean `v4.35.0` (see [lean-toolchain](./lean-toolchain)),
+* the library uses the [Lean module system](https://lean-lang.org/doc/reference/latest/Source-Files-and-Modules/):
+  every file under `src/` starts with `module`, so `Curl` can be imported
+  from `module` files (`public import Curl`) as well as from classic files (`import Curl`),
 * only a few Curl options are implemented, see [Options](https://github.com/bergmannjg/leanCurl/blob/main/src/Curl/Options.lean).
 
 ## Installation

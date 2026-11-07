@@ -1,5 +1,7 @@
-import Curl.Options
-import Curl.Extern
-import Curl.Easy
-import Curl.Multi
-import Curl.HeaderData
+module
+
+public import Curl.Options
+public import Curl.Extern
+public import Curl.Easy
+public import Curl.Multi
+public import Curl.HeaderData
