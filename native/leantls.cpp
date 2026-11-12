@@ -180,6 +180,9 @@ extern "C" LEAN_EXPORT lean_object *lean_tls_server_context(b_lean_obj_arg certP
   errno = 0;
   SSL_CTX *ctx = SSL_CTX_new(TLS_server_method());
   if (!ctx) return fail("SSL_CTX_new failed");
+  // TLS 1.2 (RFC 5246) or 1.3 (RFC 8446), whatever the system's openssl.cnf says; no client certificates.
+  if (SSL_CTX_set_min_proto_version(ctx, TLS1_2_VERSION) != 1) { SSL_CTX_free(ctx); return fail("TLS 1.2 minimum refused"); }
+  SSL_CTX_set_verify(ctx, SSL_VERIFY_NONE, nullptr);
   if (SSL_CTX_use_certificate_chain_file(ctx, lean_string_cstr(certPath)) != 1) { SSL_CTX_free(ctx); return fail("certificate rejected"); }
   if (SSL_CTX_use_PrivateKey_file(ctx, lean_string_cstr(keyPath), SSL_FILETYPE_PEM) != 1) { SSL_CTX_free(ctx); return fail("key rejected"); }
   if (SSL_CTX_check_private_key(ctx) != 1) { SSL_CTX_free(ctx); return fail("key does not match the certificate"); }
