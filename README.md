@@ -92,6 +92,20 @@ def main : IO Unit := do
     Curl.Tls.close c
 ```
 
+### The protocol, as types and as a model
+
+`Curl.Tls.withConnection ctx l body` accepts one connection, hands `body` an `Open` handle whose only
+operations are `Open.read` and `Open.write`, and closes the connection when `body` ends, by return or by
+error. A program that touches connections only through `withConnection` cannot read or write a closed
+one: `Open` has no `close`, and only `withConnection` makes an `Open`.
+
+`Curl.Tls.Protocol` is the same protocol as a model: `Cmd` the calls, `step` which ones the shim answers
+and which it refuses ("connection closed", "listener closed"), `run` a trace. Theorems:
+`read_after_close_stuck`, `write_after_close_stuck`, `accept_after_closeListener_stuck`, `close_idem`,
+`closeListener_idem`, and `withConnection_runs` — on a listening state, the trace of `withConnection`
+with any body runs with no stuck call and ends with the connection closed. These are about programs
+written against the shim's contract (which `lake exe test` checks); they say nothing about OpenSSL.
+
 ### Concurrency
 
 Every `Curl.Tls` call blocks the calling thread until the kernel or OpenSSL answers (`accept` until a

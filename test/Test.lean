@@ -89,11 +89,9 @@ def tls_round_trip : IO Unit := do
   Curl.Tls.selfSigned "localhost" "IP:127.0.0.1,DNS:localhost" 1 cert key
   let ctx ← Curl.Tls.serverContext cert key
   let l ← Curl.Tls.listen "127.0.0.1" 0
-  let server ← IO.asTask do
-    let c ← Curl.Tls.accept ctx l
-    let request ← Curl.Tls.read c
-    Curl.Tls.write c "HTTP/1.0 200 OK\r\nContent-Length: 5\r\nConnection: close\r\n\r\nhello".toUTF8
-    Curl.Tls.close c
+  let server ← IO.asTask (prio := .dedicated) <| Curl.Tls.withConnection ctx l fun o => do
+    let request ← o.read
+    o.write "HTTP/1.0 200 OK\r\nContent-Length: 5\r\nConnection: close\r\n\r\nhello".toUTF8
     pure (String.fromUTF8! request)
   let r ← IO.mkRef { : IO.FS.Stream.Buffer}
   curl_easy_perform_with_options #[

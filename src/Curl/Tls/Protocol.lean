@@ -1,0 +1,167 @@
+module
+
+public import Curl.Tls
+
+@[expose] public section
+
+/-! The protocol a program follows on `Curl.Tls`, twice over.
+
+As a *model*: `Cmd` is one call on a listener or on one of its connections, `step` says which calls the
+shim answers and which it refuses with a message ("connection closed", "listener closed"); `run` plays
+a trace. The theorems say what the shim's contract means: a read or write after `close` is stuck,
+`close` and `closeListener` are idempotent, and every trace of a program written with `withConnection`
+runs without a stuck step.
+
+As an *API*: `withConnection ctx l body` accepts one connection, hands `body` an `Open` handle whose only
+operations are `Open.read` and `Open.write`, and closes the connection when `body` ends, however it ends.
+A program that uses connections only through `withConnection` cannot read or write a closed connection:
+there is no `close` on an `Open` handle, and the handle's connection is closed only after `body` returns.
+
+Nothing here proves OpenSSL or the C shim right: the model's `step` *is* the shim's documented contract,
+checked by `lake exe test`; the theorems are about programs written against that contract. -/
+
+namespace Curl.Tls
+
+/-- One call on a listener or on a connection numbered by its order of acceptance. -/
+inductive Cmd
+  | accept (c : Nat)
+  | read (c : Nat)
+  | write (c : Nat)
+  | close (c : Nat)
+  | closeListener
+  deriving DecidableEq, Repr
+
+/-- The model's state: whether the listener is open, the connections accepted, those closed. -/
+structure St where
+  listening : Bool := true
+  accepted : List Nat := []
+  closed : List Nat := []
+  deriving Repr
+
+/-- `c` is accepted and not closed. -/
+def St.isOpen (s : St) (c : Nat) : Prop := c ∈ s.accepted ∧ c ∉ s.closed
+
+instance (s : St) (c : Nat) : Decidable (s.isOpen c) := by unfold St.isOpen; infer_instance
+
+/-- One call: the state after it, or `none` where the shim answers an error. -/
+def step (s : St) : Cmd → Option St
+  | .accept c => if s.listening then some { s with accepted := c :: s.accepted } else none
+  | .read c => if s.isOpen c then some s else none
+  | .write c => if s.isOpen c then some s else none
+  | .close c => if c ∈ s.accepted then some { s with closed := c :: s.closed } else none
+  | .closeListener => some { s with listening := false }
+
+/-- A trace played from `s`; `none` as soon as a call is stuck. -/
+def run (s : St) : List Cmd → Option St
+  | [] => some s
+  | k :: ks => (step s k).bind fun s' => run s' ks
+
+/-- A read on a closed connection is stuck ("connection closed"). -/
+theorem read_after_close_stuck (s : St) (c : Nat) :
+    step { s with closed := c :: s.closed } (.read c) = none := by
+  simp [step, St.isOpen]
+
+/-- So is a write. -/
+theorem write_after_close_stuck (s : St) (c : Nat) :
+    step { s with closed := c :: s.closed } (.write c) = none := by
+  simp [step, St.isOpen]
+
+/-- An accept on a closed listener is stuck ("listener closed"). -/
+theorem accept_after_closeListener_stuck (s : St) (c : Nat) :
+    step { s with listening := false } (.accept c) = none := by
+  simp [step]
+
+/-- Closing a closed connection is not an error: it stays closed. -/
+theorem close_idem (s : St) (c : Nat) (h : c ∈ s.accepted) :
+    step { s with closed := c :: s.closed } (.close c) = some { s with closed := c :: c :: s.closed } := by
+  simp [step, h]
+
+/-- Closing the listener twice is not an error either. -/
+theorem closeListener_idem (s : St) :
+    step { s with listening := false } .closeListener = some { s with listening := false } := by
+  simp [step]
+
+/-! ## Programs on one connection -/
+
+/-- What a body may do with its `Open` handle: read, write, or nothing, in sequence. -/
+inductive Body
+  | done
+  | read (k : Body)
+  | write (k : Body)
+
+/-- The body's calls on connection `c`. -/
+def Body.trace (c : Nat) : Body → List Cmd
+  | .done => []
+  | .read k => .read c :: k.trace c
+  | .write k => .write c :: k.trace c
+
+/-- `withConnection`'s trace: accept, the body, close. -/
+def withConnectionTrace (c : Nat) (b : Body) : List Cmd :=
+  .accept c :: b.trace c ++ [.close c]
+
+/-- A body's calls never get stuck while its connection is open, and leave the state as it was. -/
+theorem Body.run_open (b : Body) (s : St) (c : Nat) (h : s.isOpen c) :
+    run s (b.trace c) = some s := by
+  induction b with
+  | done => rfl
+  | read k ih => simp [Body.trace, run, step, h, ih]
+  | write k ih => simp [Body.trace, run, step, h, ih]
+
+/-- A trace that runs to `s'` continues from there. -/
+theorem run_append_of_some {s s' : St} {xs ys : List Cmd} (h : run s xs = some s') :
+    run s (xs ++ ys) = run s' ys := by
+  induction xs generalizing s with
+  | nil => simp [run] at h; subst h; rfl
+  | cons k ks ih =>
+    simp only [List.cons_append, run] at h ⊢
+    cases hk : step s k with
+    | none => simp [hk] at h
+    | some t => simp only [hk, Option.bind_some] at h ⊢; exact ih h
+
+/-- The protocol theorem: on a listening state, `withConnection` with any body runs to completion — no
+call stuck — and ends with the connection closed. -/
+theorem withConnection_runs (s : St) (c : Nat) (b : Body) (hl : s.listening = true)
+    (hc : c ∉ s.closed) :
+    run s (withConnectionTrace c b) = some { s with accepted := c :: s.accepted, closed := c :: s.closed } := by
+  have hopen : ({ s with accepted := c :: s.accepted } : St).isOpen c := by
+    simp [St.isOpen, hc]
+  have h1 : run s [.accept c] = some { s with accepted := c :: s.accepted } := by simp [run, step, hl]
+  have h12 : run s ([.accept c] ++ b.trace c) = some { s with accepted := c :: s.accepted } := by
+    rw [run_append_of_some h1]; exact Body.run_open b _ c hopen
+  have hsplit : (Cmd.accept c :: b.trace c ++ [.close c]) = ([.accept c] ++ b.trace c) ++ [.close c] := by simp
+  simp only [withConnectionTrace]
+  rw [hsplit, run_append_of_some h12]
+  simp [run, step]
+
+/-- After the bracket, the connection is closed. -/
+theorem withConnection_closed (s : St) (c : Nat) :
+    ¬ ({ s with accepted := c :: s.accepted, closed := c :: s.closed } : St).isOpen c := by
+  simp [St.isOpen]
+
+end Curl.Tls
+
+end
+
+/-! ## The API -/
+
+namespace Curl.Tls
+
+/-- A connection within its `withConnection` bracket: it can be read and written, and nothing else; it is
+closed when the bracket ends. Only `withConnection` makes one (the constructor is private). -/
+public structure Open where
+  private mk ::
+  conn : Connection
+
+/-- Up to `max` bytes from the connection; empty once the peer has closed. -/
+public def Open.read (o : Open) (max : UInt32 := 65536) : TlsIO ByteArray := Tls.read o.conn max
+
+/-- All of `bytes` to the connection. -/
+public def Open.write (o : Open) (bytes : ByteArray) : TlsIO Unit := Tls.write o.conn bytes
+
+/-- One connection accepted on the listener, `body` run on it, the connection closed when `body` ends —
+by return or by error. The trace is `withConnectionTrace`, so `withConnection_runs` applies. -/
+public def withConnection (ctx : Context) (l : Listener) (body : Open → TlsIO α) : TlsIO α := do
+  let c ← accept ctx l
+  try body { conn := c } finally close c
+
+end Curl.Tls
