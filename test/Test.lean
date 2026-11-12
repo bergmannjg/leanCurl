@@ -79,8 +79,38 @@ def test_curl_multi (n : Nat ): IO Unit := do
   gather_infos curlM
   List.forM curls (fun curl =>  curl_multi_remove_handle curlM curl)
 
+open scoped Curl.Tls in
+/-- Curl.Tls: a self-signed certificate, one connection served over https on the loopback, fetched by
+libcurl with that certificate as its CA. -/
+def tls_round_trip : IO Unit := do
+  let dir := "build/tls-test"
+  IO.FS.createDirAll dir
+  let cert := s!"{dir}/cert.pem"; let key := s!"{dir}/key.pem"
+  Curl.Tls.selfSigned "localhost" "IP:127.0.0.1,DNS:localhost" 1 cert key
+  let ctx ← Curl.Tls.serverContext cert key
+  let l ← Curl.Tls.listen "127.0.0.1" 0
+  let server ← IO.asTask (prio := .dedicated) <| Curl.Tls.withConnection ctx l fun o => do
+    let request ← o.read
+    o.write "HTTP/1.0 200 OK\r\nContent-Length: 5\r\nConnection: close\r\n\r\nhello".toUTF8
+    pure (String.fromUTF8! request)
+  let r ← IO.mkRef { : IO.FS.Stream.Buffer}
+  curl_easy_perform_with_options #[
+    CurlOption.URL s!"https://127.0.0.1:{Curl.Tls.port l}/",
+    CurlOption.CAINFO cert,
+    CurlOption.WRITEDATA r,
+    CurlOption.WRITEFUNCTION Curl.writeBytes]
+  let buf ← r.get
+  let body := String.fromUTF8! (buf.data.extract 0 buf.pos)
+  let request ← IO.ofExcept (← IO.wait server)
+  IO.println s!"tls round trip over https: body is 'hello': {body == "hello"}, the server saw 'GET / HTTP/1.1': {request.startsWith "GET / HTTP/1.1"}"
+  let mode ← IO.Process.run { cmd := "stat", args := #["-c", "%a", key] }
+  Curl.Tls.closeListener l
+  let afterClose ← (do let _ ← Curl.Tls.accept ctx l; pure "accepted") <|> pure "refused"
+  IO.println s!"tls key mode 600: {mode.trimAscii.toString == "600"}, accept after closeListener: {afterClose}"
+
 def main : IO Unit := do
   try
+    tls_round_trip
     IO.println s!"lean version {Lean.versionString}"
     get_should_be_equal "https://raw.githubusercontent.com/leanprover/lean4/v4.0.0/RELEASES.md" "test/fixtures/lean4_v4.0.0_RELEASES.md"
     put_should_contain "curl"

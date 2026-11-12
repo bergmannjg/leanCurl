@@ -1,3 +1,4 @@
 compile_flags.txt
 .vscode/
 .lake/
+build/

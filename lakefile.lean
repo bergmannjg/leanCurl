@@ -51,7 +51,7 @@ lean_exe test {
   srcDir := "test"
   buildType := buildType
   root := `Test
-  moreLinkArgs := #[libcurlSharedLib]
+  moreLinkArgs := #[libcurlSharedLib, "-lssl", "-lcrypto"]
 }
 
 target leancurl.o pkg : System.FilePath := do
@@ -62,10 +62,17 @@ target leancurl.o pkg : System.FilePath := do
   let flags := #["-I", (← getLeanIncludeDir).toString, "-I", dirPrefix ++ libcurlIncludeDir] ++ defines
   buildO oFile srcJob flags #["-fPIC"]
 
+/- the TLS server (Curl.Tls) over OpenSSL: link with `-lssl -lcrypto` where it is used -/
+target leantls.o pkg : System.FilePath := do
+  let oFile := pkg.buildDir / "native/" / "leantls.o"
+  let srcJob ← inputTextFile  <| pkg.dir / "native/" / "leantls.cpp"
+  buildO oFile srcJob #["-I", (← getLeanIncludeDir).toString] #["-fPIC"]
+
 extern_lib libleancurl pkg := do
   let name := nameToStaticLib "leancurl"
   let leancurl ← leancurl.o.fetch
-  buildStaticLib (pkg.sharedLibDir / name) #[leancurl]
+  let leantls ← leantls.o.fetch
+  buildStaticLib (pkg.sharedLibDir / name) #[leancurl, leantls]
 
 -- print libcurlSharedLib
 post_update do
