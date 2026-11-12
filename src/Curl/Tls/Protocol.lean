@@ -119,7 +119,14 @@ def Body.trace (c : Nat) : Body → List Cmd
 def withConnectionTrace (c : Nat) (b : Body) : List Cmd :=
   .accept c :: b.trace c ++ [.close c]
 
-/-- A body's calls never get stuck while its connection is open, and leave the state as it was. -/
+/-- A body's calls never get stuck while its connection is open, and leave the state as it was.
+
+The RFC behind it: once the handshake is complete (RFC 8446 §4 / RFC 5246 §7.4) and until a
+`close_notify` (RFC 8446 §6.1 / RFC 5246 §7.2.1), either party may send application data at any time,
+in any amount — "Application Data messages contain data that is opaque to TLS" (RFC 8446 §5.1);
+"treated as transparent data to the record layer" (RFC 5246 §6.2) — so TLS puts no order or limit on a
+body's reads and writes, and none appears in the model: every `Body` runs. What the model adds, the
+RFC does not: that `read`/`write` are the body's *only* operations. -/
 theorem Body.run_open (b : Body) (s : St) (c : Nat) (h : s.isOpen c) :
     run s (b.trace c) = some s := by
   induction b with
