@@ -36,8 +36,16 @@ RFC 5246 §6.2, and `accept` for a completed handshake, RFC 8446 §4 / RFC 5246 
 
 namespace Curl.Tls
 
-/-- One call on a listener or on a connection numbered by its order of acceptance (this library's
-operations, see the module's references; no RFC defines them). -/
+/-- One call on a listener or on a connection numbered by its order of acceptance.
+
+The set is TCP's user interface, RFC 9293 §3.9.1 ("the basic functions the TCP implementation must
+perform"): `accept` is a passive OPEN completed (§3.9.1.1, §3.10.1 — "A passive OPEN request means that
+the process wants to accept incoming connection requests", §3.3.2), `read` is RECEIVE (§3.9.1.3),
+`write` is SEND (§3.9.1.2), `close` is CLOSE on a connection (§3.9.1.4), `closeListener` is CLOSE on the
+listening connection (§3.10.4, LISTEN STATE). §3.9.1 also names STATUS and ABORT, which this library does
+not offer, and allows "subsets of the basic functions". Nothing else is a TCP user command, which is why
+there is no `wait` or other verb; the TLS layer adds no user command of its own (RFC 8446 §6.1's
+`close_notify` rides on `close`). -/
 inductive Cmd
   | accept (c : Nat)
   | read (c : Nat)
@@ -46,7 +54,15 @@ inductive Cmd
   | closeListener
   deriving DecidableEq, Repr
 
-/-- The model's state: whether the listener is open, the connections accepted, those closed. -/
+/-- The model's state: whether the listener is open, the connections accepted, those closed.
+
+TCP's states, RFC 9293 §3.3.2, as the user sees them through this library: `listening` is the listener's
+LISTEN versus CLOSED ("the fictional state CLOSED … represents the state when there is no TCB"); a
+connection in `accepted` and not in `closed` is ESTABLISHED ("an open connection, data received can be
+delivered to the user"); one in `closed` is CLOSED. The eight transient states (SYN-SENT, SYN-RECEIVED,
+FIN-WAIT-1/2, CLOSE-WAIT, CLOSING, LAST-ACK, TIME-WAIT) are not visible: `accept` returns only once the
+connection is ESTABLISHED and the TLS handshake is done, and `close` returns without waiting for the
+peer, so no call ever observes them. There is no "pending" or "denied" state for the same reason. -/
 structure St where
   listening : Bool := true
   accepted : List Nat := []
@@ -58,7 +74,15 @@ def St.isOpen (s : St) (c : Nat) : Prop := c ∈ s.accepted ∧ c ∉ s.closed
 
 instance (s : St) (c : Nat) : Decidable (s.isOpen c) := by unfold St.isOpen; infer_instance
 
-/-- One call: the state after it, or `none` where the shim answers an error. -/
+/-- One call: the state after it, or `none` where the shim answers an error.
+
+RFC 9293 §3.10, event processing by state, which this follows: SEND and RECEIVE on a connection in
+CLOSED STATE return "error: connection does not exist" (§3.10.2, §3.10.3) — `read`/`write` on a closed
+connection are `none`; a passive OPEN needs LISTEN, and CLOSE in LISTEN STATE deletes the TCB and enters
+CLOSED (§3.10.4) — `accept` after `closeListener` is `none`; SEND/RECEIVE in ESTABLISHED are served
+(§3.10.2, §3.10.3) — `read`/`write` on an open connection keep the state. One deliberate departure:
+§3.10.4 makes CLOSE in CLOSED STATE "error: connection does not exist", while this library's `close` and
+`closeListener` are idempotent (`close_idem`, `closeListener_idem`). -/
 def step (s : St) : Cmd → Option St
   | .accept c => if s.listening then some { s with accepted := c :: s.accepted } else none
   | .read c => if s.isOpen c then some s else none
@@ -85,25 +109,33 @@ theorem write_after_close_stuck (s : St) (c : Nat) :
     step { s with closed := c :: s.closed } (.write c) = none := by
   simp [step, St.isOpen]
 
-/-- An accept on a closed listener is stuck ("listener closed"). POSIX sockets, no RFC. -/
+/-- An accept on a closed listener is stuck ("listener closed"). RFC 9293 §3.10.4, CLOSE Call in LISTEN
+STATE: "Delete TCB, enter CLOSED state" — and in CLOSED STATE there is no connection to accept on
+(§3.3.2: CLOSED "represents the state when there is no TCB, and therefore, no connection"). -/
 theorem accept_after_closeListener_stuck (s : St) (c : Nat) :
     step { s with listening := false } (.accept c) = none := by
   simp [step]
 
-/-- Closing a closed connection is not an error: it stays closed. The RFCs say nothing of a second close
-(a `close_notify` is sent once, by the first `close`); this is the library's choice. -/
+/-- Closing a closed connection is not an error: it stays closed. A departure from RFC 9293 §3.10.4,
+where CLOSE in CLOSED STATE is "error: connection does not exist"; the `close_notify` of RFC 8446 §6.1
+is sent once, by the first `close`, and a second `close` changes nothing, so this library makes it a
+no-op rather than an error. -/
 theorem close_idem (s : St) (c : Nat) (h : c ∈ s.accepted) :
     step { s with closed := c :: s.closed } (.close c) = some { s with closed := c :: c :: s.closed } := by
   simp [step, h]
 
-/-- Closing the listener twice is not an error either. POSIX sockets, no RFC. -/
+/-- Closing the listener twice is not an error either; the same departure from RFC 9293 §3.10.4 as
+`close_idem`, for the same reason. -/
 theorem closeListener_idem (s : St) :
     step { s with listening := false } .closeListener = some { s with listening := false } := by
   simp [step]
 
 /-! ## Programs on one connection -/
 
-/-- What a body may do with its `Open` handle: read, write, or nothing, in sequence. -/
+/-- What a body may do with its `Open` handle: read, write, or nothing, in sequence — the RECEIVE and SEND
+of RFC 9293 §3.9.1 on an ESTABLISHED connection, carrying the application data of RFC 8446 §5.1, in
+any order and number (neither RFC constrains the sequence). CLOSE is not here: `withConnection` issues
+it, once, when the body ends. -/
 inductive Body
   | done
   | read (k : Body)
@@ -134,7 +166,9 @@ theorem Body.run_open (b : Body) (s : St) (c : Nat) (h : s.isOpen c) :
   | read k ih => simp [Body.trace, run, step, h, ih]
   | write k ih => simp [Body.trace, run, step, h, ih]
 
-/-- A trace that runs to `s'` continues from there. -/
+/-- A trace that runs to `s'` continues from there: how a trace got to a state does not matter, only the
+state — RFC 9293 §3.3.2's state machine, where each call's outcome depends on the current state alone
+(§3.10, "event processing" by state). -/
 theorem run_append_of_some {s s' : St} {xs ys : List Cmd} (h : run s xs = some s') :
     run s (xs ++ ys) = run s' ys := by
   induction xs generalizing s with
@@ -146,7 +180,10 @@ theorem run_append_of_some {s s' : St} {xs ys : List Cmd} (h : run s xs = some s
     | some t => simp only [hk, Option.bind_some] at h ⊢; exact ih h
 
 /-- The protocol theorem: on a listening state, `withConnection` with any body runs to completion — no
-call stuck — and ends with the connection closed. -/
+call stuck — and ends with the connection closed. It is the lifecycle RFC 9293 §3.3.2 describes, passive
+OPEN → ESTABLISHED → CLOSE → CLOSED, with RFC 8446's handshake (§4) inside `accept` and its
+`close_notify` (§6.1) inside `close`, and every SEND/RECEIVE of the body served in ESTABLISHED
+(§3.10.2, §3.10.3); `hl` is the LISTEN precondition of a passive OPEN (§3.10.1). -/
 theorem withConnection_runs (s : St) (c : Nat) (b : Body) (hl : s.listening = true)
     (hc : c ∉ s.closed) :
     run s (withConnectionTrace c b) = some { s with accepted := c :: s.accepted, closed := c :: s.closed } := by
@@ -174,7 +211,8 @@ end
 namespace Curl.Tls
 
 /-- A connection within its `withConnection` bracket: it can be read and written, and nothing else; it is
-closed when the bracket ends. Only `withConnection` makes one (constructor and connection are private), so
+closed when the bracket ends. It is the "local connection name" of RFC 9293 §3.9.1.1, which OPEN returns
+and SEND/RECEIVE take, restricted to those two calls and valid while the connection is ESTABLISHED. Only `withConnection` makes one (constructor and connection are private), so
 within the bracket no one can close it. A handle kept past its bracket names a closed connection: its
 reads and writes then fail with "connection closed". -/
 public structure Open where
