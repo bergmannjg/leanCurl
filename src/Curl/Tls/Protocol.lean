@@ -36,36 +36,44 @@ RFC 5246 §6.2, and `accept` for a completed handshake, RFC 8446 §4 / RFC 5246 
 
 namespace Curl.Tls
 
-/-- One call on a listener or on a connection numbered by its order of acceptance.
-
-The set is TCP's user interface, RFC 9293 §3.9.1 ("the basic functions the TCP implementation must
-perform"): `accept` is a passive OPEN completed (§3.9.1.1, §3.10.1 — "A passive OPEN request means that
-the process wants to accept incoming connection requests", §3.3.2), `read` is RECEIVE (§3.9.1.3),
-`write` is SEND (§3.9.1.2), `close` is CLOSE on a connection (§3.9.1.4), `closeListener` is CLOSE on the
-listening connection (§3.10.4, LISTEN STATE). §3.9.1 also names STATUS and ABORT, which this library does
-not offer, and allows "subsets of the basic functions". Nothing else is a TCP user command, which is why
-there is no `wait` or other verb; the TLS layer adds no user command of its own (RFC 8446 §6.1's
-`close_notify` rides on `close`). -/
+/-- One call on a listener or on a connection numbered by its order of acceptance: TCP's user interface,
+RFC 9293 §3.9.1 ("the basic functions the TCP implementation must perform"), each constructor one of its
+user commands. §3.9.1 also names STATUS and ABORT, which this library does not offer — §3.9.1 allows
+"subsets of the basic functions" — and nothing else is a TCP user command, so there is no `wait` or
+other verb; TLS adds no user command of its own (RFC 8446 §6.1's `close_notify` rides on `close`). -/
 inductive Cmd
+  /-- A passive OPEN completed: RFC 9293 §3.9.1.1 and §3.10.1 — "A passive OPEN request means that the
+  process wants to accept incoming connection requests" (§3.3.2); the TLS handshake of RFC 8446 §4 /
+  RFC 5246 §7.4 run inside it. -/
   | accept (c : Nat)
+  /-- RECEIVE on connection `c`: RFC 9293 §3.9.1.3; the bytes are application data, RFC 8446 §5.1 /
+  RFC 5246 §6.2. -/
   | read (c : Nat)
+  /-- SEND on connection `c`: RFC 9293 §3.9.1.2; application data as for `read`. -/
   | write (c : Nat)
+  /-- CLOSE on connection `c`: RFC 9293 §3.9.1.4, preceded by the `close_notify` alert of RFC 8446 §6.1 /
+  RFC 5246 §7.2.1. -/
   | close (c : Nat)
+  /-- CLOSE on the listening connection: RFC 9293 §3.10.4, CLOSE Call in LISTEN STATE ("Delete TCB,
+  enter CLOSED state"). -/
   | closeListener
   deriving DecidableEq, Repr
 
-/-- The model's state: whether the listener is open, the connections accepted, those closed.
-
-TCP's states, RFC 9293 §3.3.2, as the user sees them through this library: `listening` is the listener's
-LISTEN versus CLOSED ("the fictional state CLOSED … represents the state when there is no TCB"); a
-connection in `accepted` and not in `closed` is ESTABLISHED ("an open connection, data received can be
-delivered to the user"); one in `closed` is CLOSED. The eight transient states (SYN-SENT, SYN-RECEIVED,
-FIN-WAIT-1/2, CLOSE-WAIT, CLOSING, LAST-ACK, TIME-WAIT) are not visible: `accept` returns only once the
-connection is ESTABLISHED and the TLS handshake is done, and `close` returns without waiting for the
-peer, so no call ever observes them. There is no "pending" or "denied" state for the same reason. -/
+/-- The model's state: TCP's connection states, RFC 9293 §3.3.2, as the user of this library sees them.
+Of the eleven states there, only LISTEN, ESTABLISHED and CLOSED are observable: the eight transient ones
+(SYN-SENT, SYN-RECEIVED, FIN-WAIT-1/2, CLOSE-WAIT, CLOSING, LAST-ACK, TIME-WAIT) are passed through
+inside `accept`, which returns only once the connection is ESTABLISHED and the TLS handshake done, and
+inside `close`, which returns without waiting for the peer; so no call observes them, and there is no
+"pending" or "denied" state either. -/
 structure St where
+  /-- The listener's state: `true` is LISTEN ("waiting for a connection request from any remote TCP peer
+  and port"), `false` is CLOSED ("the fictional state CLOSED … represents the state when there is no
+  TCB"), RFC 9293 §3.3.2. -/
   listening : Bool := true
+  /-- The connections a passive OPEN has returned, RFC 9293 §3.10.1; one here and not in `closed` is
+  ESTABLISHED ("an open connection, data received can be delivered to the user", §3.3.2). -/
   accepted : List Nat := []
+  /-- The connections CLOSE has been called on, RFC 9293 §3.9.1.4: CLOSED, their TCB gone (§3.3.2). -/
   closed : List Nat := []
   deriving Repr
 
@@ -132,13 +140,16 @@ theorem closeListener_idem (s : St) :
 
 /-! ## Programs on one connection -/
 
-/-- What a body may do with its `Open` handle: read, write, or nothing, in sequence — the RECEIVE and SEND
-of RFC 9293 §3.9.1 on an ESTABLISHED connection, carrying the application data of RFC 8446 §5.1, in
-any order and number (neither RFC constrains the sequence). CLOSE is not here: `withConnection` issues
-it, once, when the body ends. -/
+/-- What a body may do with its `Open` handle, in sequence: the user commands of RFC 9293 §3.9.1 that
+apply to an ESTABLISHED connection other than CLOSE — which `withConnection` issues itself, once, when
+the body ends. Neither RFC 9293 nor RFC 8446 constrains their order or number (§5.1: application data
+"opaque to TLS"), so neither does `Body`. -/
 inductive Body
+  /-- No further call. -/
   | done
+  /-- RECEIVE, RFC 9293 §3.9.1.3, then `k`. -/
   | read (k : Body)
+  /-- SEND, RFC 9293 §3.9.1.2, then `k`. -/
   | write (k : Body)
 
 /-- The body's calls on connection `c`. -/
