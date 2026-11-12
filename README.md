@@ -85,7 +85,7 @@ open scoped Curl.Tls in
 def main : IO Unit := do
     Curl.Tls.selfSigned "localhost" "IP:127.0.0.1,DNS:localhost" 1 "cert.pem" "key.pem"
     let ctx ← Curl.Tls.serverContext "cert.pem" "key.pem"
-    let l ← Curl.Tls.listen "127.0.0.1" 8443
+    let l ← Curl.Tls.listen "127.0.0.1" 8443   -- Curl.Tls.port l; closed when dropped or by closeListener
     let c ← Curl.Tls.accept ctx l            -- the handshake done
     let request ← Curl.Tls.read c            -- bytes; empty once the peer has closed
     Curl.Tls.write c "HTTP/1.0 200 OK\r\nContent-Length: 5\r\n\r\nhello".toUTF8

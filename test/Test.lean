@@ -97,7 +97,7 @@ def tls_round_trip : IO Unit := do
     pure (String.fromUTF8! request)
   let r ← IO.mkRef { : IO.FS.Stream.Buffer}
   curl_easy_perform_with_options #[
-    CurlOption.URL s!"https://127.0.0.1:{l.port}/",
+    CurlOption.URL s!"https://127.0.0.1:{Curl.Tls.port l}/",
     CurlOption.CAINFO cert,
     CurlOption.WRITEDATA r,
     CurlOption.WRITEFUNCTION Curl.writeBytes]
@@ -105,6 +105,10 @@ def tls_round_trip : IO Unit := do
   let body := String.fromUTF8! (buf.data.extract 0 buf.pos)
   let request ← IO.ofExcept (← IO.wait server)
   IO.println s!"tls round trip over https: body is 'hello': {body == "hello"}, the server saw 'GET / HTTP/1.1': {request.startsWith "GET / HTTP/1.1"}"
+  let mode ← IO.Process.run { cmd := "stat", args := #["-c", "%a", key] }
+  Curl.Tls.closeListener l
+  let afterClose ← (do let _ ← Curl.Tls.accept ctx l; pure "accepted") <|> pure "refused"
+  IO.println s!"tls key mode 600: {mode.trimAscii.toString == "600"}, accept after closeListener: {afterClose}"
 
 def main : IO Unit := do
   try

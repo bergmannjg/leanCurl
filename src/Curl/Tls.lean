@@ -14,6 +14,9 @@ opaque Context : Type := Unit
 /-- An accepted connection, its handshake done. -/
 opaque Connection : Type := Unit
 
+/-- A listening socket; closed when it is dropped or by `closeListener`. -/
+opaque Listener : Type := Unit
+
 /-- The actions that can fail, with a message. -/
 abbrev TlsIO : Type → Type := EIO String
 
@@ -25,13 +28,19 @@ namespace Extern
 opaque selfSigned (cn san : @& String) (days : UInt32) (certPath keyPath : @& String) : TlsIO Unit
 
 @[extern "lean_tls_listen"]
-opaque listen (host : @& String) (port : UInt32) : TlsIO UInt64
+opaque listen (host : @& String) (port : UInt32) : TlsIO Listener
+
+@[extern "lean_tls_listener_port"]
+opaque listenerPort (l : @& Listener) : UInt32
+
+@[extern "lean_tls_listener_close"]
+opaque listenerClose (l : @& Listener) : TlsIO Unit
 
 @[extern "lean_tls_server_context"]
 opaque serverContext (certPath keyPath : @& String) : TlsIO Context
 
 @[extern "lean_tls_accept"]
-opaque accept (ctx : @& Context) (fd : UInt32) : TlsIO Connection
+opaque accept (ctx : @& Context) (l : @& Listener) : TlsIO Connection
 
 @[extern "lean_tls_read"]
 opaque read (c : @& Connection) (max : UInt32) : TlsIO ByteArray
@@ -49,15 +58,16 @@ end Extern
 def selfSigned (cn san : String) (days : UInt32) (certPath keyPath : String) : TlsIO Unit :=
   Extern.selfSigned cn san days certPath keyPath
 
-/-- A listening socket and the port it listens on. -/
-structure Listener where
-  fd : UInt32
-  port : UInt16
+/-- A TCP socket bound to `host:port` (an IPv4 address; port 0 for any free one), listening; the
+socket is closed when the listener is dropped, or by `closeListener`. -/
+def listen (host : String) (port : UInt16) : TlsIO Listener :=
+  Extern.listen host port.toUInt32
 
-/-- A TCP socket bound to `host:port` (an IPv4 address; port 0 for any free one), listening. -/
-def listen (host : String) (port : UInt16) : TlsIO Listener := do
-  let packed ← Extern.listen host port.toUInt32
-  pure { fd := (packed >>> 32).toUInt32, port := (packed &&& 0xFFFF).toUInt16 }
+/-- The port the listener is bound to. -/
+def port (l : Listener) : UInt16 := (Extern.listenerPort l).toUInt16
+
+/-- The listening socket closed; a later `accept` fails. -/
+def closeListener (l : Listener) : TlsIO Unit := Extern.listenerClose l
 
 /-- A server context presenting the certificate at `certPath`, signed with the key at `keyPath`. -/
 def serverContext (certPath keyPath : String) : TlsIO Context :=
@@ -66,7 +76,7 @@ def serverContext (certPath keyPath : String) : TlsIO Context :=
 /-- The next connection on the listener, its TLS handshake done (an error when the handshake fails:
 the server goes on with the next connection). -/
 def accept (ctx : Context) (l : Listener) : TlsIO Connection :=
-  Extern.accept ctx l.fd
+  Extern.accept ctx l
 
 /-- Up to `max` bytes from the connection; empty once the peer has closed. -/
 def read (c : Connection) (max : UInt32 := 65536) : TlsIO ByteArray :=
@@ -76,7 +86,7 @@ def read (c : Connection) (max : UInt32 := 65536) : TlsIO ByteArray :=
 def write (c : Connection) (bytes : ByteArray) : TlsIO Unit :=
   Extern.write c bytes
 
-/-- The session shut down and the socket closed. -/
+/-- The session shut down and the socket closed; a later `read` or `write` fails with "connection closed". -/
 def close (c : Connection) : TlsIO Unit :=
   Extern.close c
 

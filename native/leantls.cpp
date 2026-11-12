@@ -12,6 +12,10 @@
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <pthread.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -23,6 +27,13 @@ struct Conn {
   SSL *ssl;
   int fd;
 };
+
+struct Lst {
+  int fd;
+  uint16_t port;
+};
+
+static lean_external_class *g_tls_lst_class = nullptr;
 
 // The error: `what`, then OpenSSL's pending error or errno when either says more. The functions do not
 // use the C++ standard library, as Lean's linker does not link it.
@@ -50,15 +61,37 @@ static void conn_finalizer(void *p) {
   if (c->fd >= 0) close(c->fd);
   free(c);
 }
+static void lst_finalizer(void *p) {
+  Lst *l = static_cast<Lst *>(p);
+  if (l->fd >= 0) close(l->fd);
+  free(l);
+}
 static void noop_foreach(void *, b_lean_obj_arg) {}
 
-static void initialize() {
-  if (g_tls_ctx_class == nullptr) {
-    SSL_library_init();
-    SSL_load_error_strings();
-    g_tls_ctx_class = lean_register_external_class(ctx_finalizer, noop_foreach);
-    g_tls_conn_class = lean_register_external_class(conn_finalizer, noop_foreach);
-  }
+// Once, whichever task comes first: OpenSSL, the three external classes, and SIGPIPE ignored — a peer
+// gone before a write then makes SSL_write fail (reported by `write`) instead of ending the process.
+static pthread_once_t g_tls_once = PTHREAD_ONCE_INIT;
+static void initialize_once() {
+  SSL_library_init();
+  SSL_load_error_strings();
+  g_tls_ctx_class = lean_register_external_class(ctx_finalizer, noop_foreach);
+  g_tls_conn_class = lean_register_external_class(conn_finalizer, noop_foreach);
+  g_tls_lst_class = lean_register_external_class(lst_finalizer, noop_foreach);
+  signal(SIGPIPE, SIG_IGN);
+}
+static void initialize() { pthread_once(&g_tls_once, initialize_once); }
+
+// A PEM file written whole: created with `mode` (the key 0600, the certificate 0644), truncated, the
+// writer run, and fclose's verdict counted, since a buffered write can fail only then.
+template <typename W> static bool write_pem(const char *path, mode_t mode, W writer) {
+  int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, mode);
+  if (fd < 0) return false;
+  if (fchmod(fd, mode) != 0) { close(fd); return false; }
+  FILE *f = fdopen(fd, "w");
+  if (!f) { close(fd); return false; }
+  bool ok = writer(f) != 0;
+  if (fclose(f) != 0) ok = false;
+  return ok;
 }
 
 // lean_tls_self_signed cn san days certPath keyPath: an RSA-2048 key and a self-signed X.509 v3
@@ -93,27 +126,19 @@ extern "C" LEAN_EXPORT lean_object *lean_tls_self_signed(b_lean_obj_arg cn, b_le
     X509_EXTENSION_free(x);
   }
   if (X509_sign(crt, key, EVP_sha256()) == 0) { X509_free(crt); EVP_PKEY_free(key); return fail("signing failed"); }
-  FILE *kf = fopen(lean_string_cstr(keyPath), "w");
-  if (!kf || PEM_write_PrivateKey(kf, key, nullptr, nullptr, 0, nullptr, nullptr) == 0) {
-    if (kf) fclose(kf);
-    X509_free(crt); EVP_PKEY_free(key);
-    return fail("writing failed:", lean_string_cstr(keyPath));
-  }
-  fclose(kf);
-  FILE *cf = fopen(lean_string_cstr(certPath), "w");
-  if (!cf || PEM_write_X509(cf, crt) == 0) {
-    if (cf) fclose(cf);
-    X509_free(crt); EVP_PKEY_free(key);
-    return fail("writing failed:", lean_string_cstr(certPath));
-  }
-  fclose(cf);
+  bool keyOk = write_pem(lean_string_cstr(keyPath), 0600, [&](FILE *f) {
+    return PEM_write_PrivateKey(f, key, nullptr, nullptr, 0, nullptr, nullptr);
+  });
+  if (!keyOk) { X509_free(crt); EVP_PKEY_free(key); return fail("writing failed:", lean_string_cstr(keyPath)); }
+  bool crtOk = write_pem(lean_string_cstr(certPath), 0644, [&](FILE *f) { return PEM_write_X509(f, crt); });
+  if (!crtOk) { X509_free(crt); EVP_PKEY_free(key); return fail("writing failed:", lean_string_cstr(certPath)); }
   X509_free(crt);
   EVP_PKEY_free(key);
   return lean_io_result_mk_ok(lean_box(0));
 }
 
-// lean_tls_listen host port: a TCP socket bound to `host:port` (port 0 for any free one), listening.
-// The answer packs the socket's descriptor in the high 32 bits and the port it listens on in the low 16.
+// lean_tls_listen host port: a TCP socket bound to `host:port` (port 0 for any free one), listening —
+// a Listener, closed when it is dropped or by lean_tls_listener_close.
 extern "C" LEAN_EXPORT lean_object *lean_tls_listen(b_lean_obj_arg host, uint32_t port, lean_obj_arg /* w */) {
   initialize();
   errno = 0;
@@ -130,9 +155,22 @@ extern "C" LEAN_EXPORT lean_object *lean_tls_listen(b_lean_obj_arg host, uint32_
   if (listen(fd, 16) != 0) { int e = errno; close(fd); errno = e; return fail("listen failed"); }
   socklen_t len = sizeof addr;
   if (getsockname(fd, (struct sockaddr *)&addr, &len) != 0) { int e = errno; close(fd); errno = e; return fail("getsockname failed"); }
-  // the answer packs the descriptor and the bound port: fd in the high 32 bits, port in the low 16
-  uint64_t packed = ((uint64_t)(uint32_t)fd << 32) | ntohs(addr.sin_port);
-  return lean_io_result_mk_ok(lean_box_uint64(packed));
+  Lst *l = (Lst *)malloc(sizeof *l);
+  l->fd = fd;
+  l->port = ntohs(addr.sin_port);
+  return lean_io_result_mk_ok(lean_alloc_external(g_tls_lst_class, l));
+}
+
+// lean_tls_listener_port l: the port the listener is bound to.
+extern "C" LEAN_EXPORT uint32_t lean_tls_listener_port(b_lean_obj_arg lst) {
+  return static_cast<Lst *>(lean_get_external_data(lst))->port;
+}
+
+// lean_tls_listener_close l: the listening socket closed; a later accept fails.
+extern "C" LEAN_EXPORT lean_object *lean_tls_listener_close(b_lean_obj_arg lst, lean_obj_arg /* w */) {
+  Lst *l = static_cast<Lst *>(lean_get_external_data(lst));
+  if (l->fd >= 0) { close(l->fd); l->fd = -1; }
+  return lean_io_result_mk_ok(lean_box(0));
 }
 
 // lean_tls_server_context certPath keyPath: a TLS server context presenting that certificate.
@@ -148,10 +186,12 @@ extern "C" LEAN_EXPORT lean_object *lean_tls_server_context(b_lean_obj_arg certP
   return lean_io_result_mk_ok(lean_alloc_external(g_tls_ctx_class, ctx));
 }
 
-// lean_tls_accept ctx fd: the next connection on the listening socket `fd`, its TLS handshake done.
-extern "C" LEAN_EXPORT lean_object *lean_tls_accept(b_lean_obj_arg ctx, uint32_t fd, lean_obj_arg /* w */) {
+// lean_tls_accept ctx l: the next connection on the listener, its TLS handshake done.
+extern "C" LEAN_EXPORT lean_object *lean_tls_accept(b_lean_obj_arg ctx, b_lean_obj_arg lst, lean_obj_arg /* w */) {
   errno = 0;
-  int c = accept((int)fd, nullptr, nullptr);
+  Lst *l = static_cast<Lst *>(lean_get_external_data(lst));
+  if (l->fd < 0) return fail("listener closed");
+  int c = accept(l->fd, nullptr, nullptr);
   if (c < 0) return fail("accept failed");
   SSL *ssl = SSL_new(static_cast<SSL_CTX *>(lean_get_external_data(ctx)));
   if (!ssl) { close(c); return fail("SSL_new failed"); }
@@ -167,6 +207,7 @@ extern "C" LEAN_EXPORT lean_object *lean_tls_accept(b_lean_obj_arg ctx, uint32_t
 extern "C" LEAN_EXPORT lean_object *lean_tls_read(b_lean_obj_arg conn, uint32_t max, lean_obj_arg /* w */) {
   errno = 0;
   Conn *c = static_cast<Conn *>(lean_get_external_data(conn));
+  if (!c->ssl) return fail("connection closed");
   lean_object *bytes = lean_alloc_sarray(1, 0, max);
   int n = SSL_read(c->ssl, lean_sarray_cptr(bytes), (int)max);
   if (n <= 0) {
@@ -186,6 +227,7 @@ extern "C" LEAN_EXPORT lean_object *lean_tls_read(b_lean_obj_arg conn, uint32_t 
 extern "C" LEAN_EXPORT lean_object *lean_tls_write(b_lean_obj_arg conn, b_lean_obj_arg bytes, lean_obj_arg /* w */) {
   errno = 0;
   Conn *c = static_cast<Conn *>(lean_get_external_data(conn));
+  if (!c->ssl) return fail("connection closed");
   size_t size = lean_sarray_size(bytes), done = 0;
   const uint8_t *data = lean_sarray_cptr(bytes);
   while (done < size) {
@@ -196,7 +238,8 @@ extern "C" LEAN_EXPORT lean_object *lean_tls_write(b_lean_obj_arg conn, b_lean_o
   return lean_io_result_mk_ok(lean_box(0));
 }
 
-// lean_tls_close conn: the TLS session shut down and the socket closed; later reads and writes fail.
+// lean_tls_close conn: the TLS session shut down and the socket closed; later reads and writes fail
+// with "connection closed".
 extern "C" LEAN_EXPORT lean_object *lean_tls_close(b_lean_obj_arg conn, lean_obj_arg /* w */) {
   Conn *c = static_cast<Conn *>(lean_get_external_data(conn));
   if (c->ssl) { SSL_shutdown(c->ssl); SSL_free(c->ssl); c->ssl = nullptr; }
