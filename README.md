@@ -102,6 +102,10 @@ has no linear types, so a body that returns or stores its handle keeps a name fo
 a later `Open.read`/`Open.write` on it fails with "connection closed" — an error, never a crash. Keep
 handles inside their bracket.
 
+Every definition's docstring in `Curl.Tls` names the RFC and section it follows (TLS 1.3 RFC 8446,
+TLS 1.2 RFC 5246, X.509 RFC 5280, PEM RFC 7468, https identity RFC 2818 §3.1 / RFC 6125 §6.4), or says
+that it follows none — sockets, and the library's own contract.
+
 `Curl.Tls.Protocol` is the same protocol as a model: `Cmd` the calls, `step` which ones the shim answers
 and which it refuses ("connection closed", "listener closed"), `run` a trace. Theorems:
 `read_after_close_stuck`, `write_after_close_stuck`, `accept_after_closeListener_stuck`, `close_idem`,
@@ -153,8 +157,9 @@ the key is written mode 0600, the certificate 0644.
 *Client* (libcurl, the rest of this library): verifies the server as RFC 5280 §6.1 path validation by
 OpenSSL, with the trust anchors from `CAINFO` (a self-signed certificate given there is its own anchor
 — the test's case) or the system store, then matches the host of the URL against the certificate's
-`subjectAltName` as [RFC 6125](https://www.rfc-editor.org/rfc/rfc6125) §6.4 describes (an IP literal
-against `IP:` entries, a name against `DNS:` entries, wildcards per §6.4.3). `SSL_VERIFYPEER 0` turns
+`subjectAltName`: an IP literal against `IP:` entries as [RFC 2818](https://www.rfc-editor.org/rfc/rfc2818)
+§3.1 says, a name against `DNS:` entries as [RFC 6125](https://www.rfc-editor.org/rfc/rfc6125) §6.4
+describes (wildcards per §6.4.3). `SSL_VERIFYPEER 0` turns
 the first check off — for a throwaway test only; hostname matching cannot be turned off from Lean (no
 `SSL_VERIFYHOST` option is exposed, on purpose). Mutual TLS is not offered.
 

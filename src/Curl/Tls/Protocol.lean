@@ -21,11 +21,18 @@ linear types: a body that returns or stores its handle keeps a name for a closed
 inside their bracket.
 
 Nothing here proves OpenSSL or the C shim right: the model's `step` *is* the shim's documented contract,
-checked by `lake exe test`; the theorems are about programs written against that contract. -/
+checked by `lake exe test`; the theorems are about programs written against that contract.
+
+**References.** `Cmd`, `St`, `step`, `run`, `Body` and the theorems follow no RFC: they are this
+library's contract — which calls it answers, which it refuses. The only RFC-defined event in the model is
+`close`: it stands for `Curl.Tls.close`, the `close_notify` alert of RFC 8446 §6.1 / RFC 5246 §7.2.1
+followed by the socket's close; `read` and `write` stand for application data of RFC 8446 §5.1 /
+RFC 5246 §6.2, and `accept` for a completed handshake, RFC 8446 §4 / RFC 5246 §7.4. -/
 
 namespace Curl.Tls
 
-/-- One call on a listener or on a connection numbered by its order of acceptance. -/
+/-- One call on a listener or on a connection numbered by its order of acceptance (this library's
+operations, see the module's references; no RFC defines them). -/
 inductive Cmd
   | accept (c : Nat)
   | read (c : Nat)
@@ -164,7 +171,8 @@ public def Open.read (o : Open) (max : UInt32 := 65536) : TlsIO ByteArray := Tls
 public def Open.write (o : Open) (bytes : ByteArray) : TlsIO Unit := Tls.write o.conn bytes
 
 /-- One connection accepted on the listener, `body` run on it, the connection closed when `body` ends —
-by return or by error. The trace is `withConnectionTrace`, so `withConnection_runs` applies. -/
+by return or by error (`close`: the `close_notify` alert of RFC 8446 §6.1 / RFC 5246 §7.2.1, then the
+socket). The trace is `withConnectionTrace`, so `withConnection_runs` applies. -/
 public def withConnection (ctx : Context) (l : Listener) (body : Open → TlsIO α) : TlsIO α := do
   let c ← accept ctx l
   try body { conn := c } finally close c
