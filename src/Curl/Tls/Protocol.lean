@@ -23,8 +23,13 @@ inside their bracket.
 Nothing here proves OpenSSL or the C shim right: the model's `step` *is* the shim's documented contract,
 checked by `lake exe test`; the theorems are about programs written against that contract.
 
-**References.** `Cmd`, `St`, `step`, `run`, `Body` and the theorems follow no RFC: they are this
-library's contract — which calls it answers, which it refuses. The only RFC-defined event in the model is
+**References.** `Cmd`, `St`, `step`, `run`, `Body` and the theorems are this library's contract — which
+calls it answers, which it refuses; each theorem's docstring says whether an RFC requires the behaviour
+(only `write_after_close_stuck` does: RFC 8446 §6.1 / RFC 5246 §7.2.1, no messages after `close_notify`),
+whether the library is stricter than the RFC (`read_after_close_stuck`), or whether no RFC applies (the
+listener, a second close). What the RFCs require of `close` itself — "Each party MUST send a
+close_notify alert before closing its write side of the connection" (RFC 8446 §6.1) — is met by the shim
+(`SSL_shutdown` before `close(2)`), trusted, not proved here. The only RFC-defined event in the model is
 `close`: it stands for `Curl.Tls.close`, the `close_notify` alert of RFC 8446 §6.1 / RFC 5246 §7.2.1
 followed by the socket's close; `read` and `write` stand for application data of RFC 8446 §5.1 /
 RFC 5246 §6.2, and `accept` for a completed handshake, RFC 8446 §4 / RFC 5246 §7.4. -/
@@ -66,27 +71,32 @@ def run (s : St) : List Cmd → Option St
   | [] => some s
   | k :: ks => (step s k).bind fun s' => run s' ks
 
-/-- A read on a closed connection is stuck ("connection closed"). -/
+/-- A read on a closed connection is stuck ("connection closed"). This library's contract, stricter than
+the RFCs: sending `close_notify` "does not have any effect on its read side of the connection"
+(RFC 8446 §6.1, fourth paragraph), but `Curl.Tls.close` also closes the socket, so no read side remains. -/
 theorem read_after_close_stuck (s : St) (c : Nat) :
     step { s with closed := c :: s.closed } (.read c) = none := by
   simp [step, St.isOpen]
 
-/-- So is a write. -/
+/-- So is a write — here the RFCs do speak: `close` sent `close_notify`, which "notifies the recipient that
+the sender will not send any more messages on this connection" (RFC 8446 §6.1, definition of
+`close_notify`; RFC 5246 §7.2.1, same words), so a later write would break that promise and is refused. -/
 theorem write_after_close_stuck (s : St) (c : Nat) :
     step { s with closed := c :: s.closed } (.write c) = none := by
   simp [step, St.isOpen]
 
-/-- An accept on a closed listener is stuck ("listener closed"). -/
+/-- An accept on a closed listener is stuck ("listener closed"). POSIX sockets, no RFC. -/
 theorem accept_after_closeListener_stuck (s : St) (c : Nat) :
     step { s with listening := false } (.accept c) = none := by
   simp [step]
 
-/-- Closing a closed connection is not an error: it stays closed. -/
+/-- Closing a closed connection is not an error: it stays closed. The RFCs say nothing of a second close
+(a `close_notify` is sent once, by the first `close`); this is the library's choice. -/
 theorem close_idem (s : St) (c : Nat) (h : c ∈ s.accepted) :
     step { s with closed := c :: s.closed } (.close c) = some { s with closed := c :: c :: s.closed } := by
   simp [step, h]
 
-/-- Closing the listener twice is not an error either. -/
+/-- Closing the listener twice is not an error either. POSIX sockets, no RFC. -/
 theorem closeListener_idem (s : St) :
     step { s with listening := false } .closeListener = some { s with listening := false } := by
   simp [step]
