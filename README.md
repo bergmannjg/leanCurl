@@ -96,8 +96,11 @@ def main : IO Unit := do
 
 `Curl.Tls.withConnection ctx l body` accepts one connection, hands `body` an `Open` handle whose only
 operations are `Open.read` and `Open.write`, and closes the connection when `body` ends, by return or by
-error. A program that touches connections only through `withConnection` cannot read or write a closed
-one: `Open` has no `close`, and only `withConnection` makes an `Open`.
+error. Within the bracket nothing can close the connection (`Open` has no `close`, its connection is
+private, only `withConnection` makes one), so every read and write there is on an open connection. Lean
+has no linear types, so a body that returns or stores its handle keeps a name for a closed connection:
+a later `Open.read`/`Open.write` on it fails with "connection closed" — an error, never a crash. Keep
+handles inside their bracket.
 
 `Curl.Tls.Protocol` is the same protocol as a model: `Cmd` the calls, `step` which ones the shim answers
 and which it refuses ("connection closed", "listener closed"), `run` a trace. Theorems:

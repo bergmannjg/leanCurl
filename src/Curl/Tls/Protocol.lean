@@ -14,8 +14,11 @@ runs without a stuck step.
 
 As an *API*: `withConnection ctx l body` accepts one connection, hands `body` an `Open` handle whose only
 operations are `Open.read` and `Open.write`, and closes the connection when `body` ends, however it ends.
-A program that uses connections only through `withConnection` cannot read or write a closed connection:
-there is no `close` on an `Open` handle, and the handle's connection is closed only after `body` returns.
+Within the bracket nothing can close the connection (`Open` has no `close`, its connection is private), so
+every `read`/`write` there is on an open connection — the model's `withConnection_runs`. Lean has no
+linear types: a body that returns or stores its handle keeps a name for a closed connection, and a later
+`Open.read`/`Open.write` on it fails with "connection closed" (an error, never a crash); keep handles
+inside their bracket.
 
 Nothing here proves OpenSSL or the C shim right: the model's `step` *is* the shim's documented contract,
 checked by `lake exe test`; the theorems are about programs written against that contract. -/
@@ -147,10 +150,12 @@ end
 namespace Curl.Tls
 
 /-- A connection within its `withConnection` bracket: it can be read and written, and nothing else; it is
-closed when the bracket ends. Only `withConnection` makes one (the constructor is private). -/
+closed when the bracket ends. Only `withConnection` makes one (constructor and connection are private), so
+within the bracket no one can close it. A handle kept past its bracket names a closed connection: its
+reads and writes then fail with "connection closed". -/
 public structure Open where
   private mk ::
-  conn : Connection
+  private conn : Connection
 
 /-- Up to `max` bytes from the connection; empty once the peer has closed. -/
 public def Open.read (o : Open) (max : UInt32 := 65536) : TlsIO ByteArray := Tls.read o.conn max
