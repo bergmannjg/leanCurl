@@ -227,13 +227,21 @@ and SEND/RECEIVE take, restricted to those two calls and valid while the connect
 within the bracket no one can close it. A handle kept past its bracket names a closed connection: its
 reads and writes then fail with "connection closed". -/
 public structure Open where
+  /-- The return of a passive OPEN, RFC 9293 §3.9.1.1: "A local connection name will be returned to the
+  user by the TCP implementation" — here by `withConnection` alone, which is why the constructor is
+  private: no one else can name a connection. -/
   private mk ::
+  /-- "the connection defined by the <local socket, remote socket> pair" that the local connection name
+  is "a shorthand term for" (RFC 9293 §3.9.1.1); private so that the body can issue nothing on it but
+  this structure's SEND and RECEIVE, never a CLOSE. -/
   private conn : Connection
 
-/-- Up to `max` bytes from the connection; empty once the peer has closed. -/
+/-- RECEIVE (RFC 9293 §3.9.1.3) through the local connection name: up to `max` bytes of application data
+(RFC 8446 §5.1); empty once the peer has closed (`close_notify` received, RFC 8446 §6.1). -/
 public def Open.read (o : Open) (max : UInt32 := 65536) : TlsIO ByteArray := Tls.read o.conn max
 
-/-- All of `bytes` to the connection. -/
+/-- SEND (RFC 9293 §3.9.1.2) through the local connection name: all of `bytes` as application data
+(RFC 8446 §5.1). -/
 public def Open.write (o : Open) (bytes : ByteArray) : TlsIO Unit := Tls.write o.conn bytes
 
 /-- One connection accepted on the listener, `body` run on it, the connection closed when `body` ends —
