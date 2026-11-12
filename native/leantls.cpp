@@ -96,7 +96,9 @@ template <typename W> static bool write_pem(const char *path, mode_t mode, W wri
 
 // lean_tls_self_signed cn san days certPath keyPath: an RSA-2048 key and a self-signed X.509 v3
 // certificate for `cn` with the subjectAltName `san` (e.g. "IP:127.0.0.1,DNS:localhost"), valid
-// `days` days from now, written as PEM to the two paths.
+// `days` days from now, written as PEM to the two paths. RFC 5280: version (§4.1.2.1), serial
+// (§4.1.2.2), issuer = subject (§4.1.2.4, §4.1.2.6), validity (§4.1.2.5), subjectAltName (§4.2.1.6),
+// basicConstraints (§4.2.1.9), subjectKeyIdentifier (§4.2.1.2); PEM per RFC 7468.
 extern "C" LEAN_EXPORT lean_object *lean_tls_self_signed(b_lean_obj_arg cn, b_lean_obj_arg san, uint32_t days,
                                                           b_lean_obj_arg certPath, b_lean_obj_arg keyPath,
                                                           lean_obj_arg /* w */) {
@@ -180,7 +182,8 @@ extern "C" LEAN_EXPORT lean_object *lean_tls_server_context(b_lean_obj_arg certP
   errno = 0;
   SSL_CTX *ctx = SSL_CTX_new(TLS_server_method());
   if (!ctx) return fail("SSL_CTX_new failed");
-  // TLS 1.2 (RFC 5246) or 1.3 (RFC 8446), whatever the system's openssl.cnf says; no client certificates.
+  // TLS 1.2 (RFC 5246) or 1.3 (RFC 8446) and nothing below; no CertificateRequest (RFC 8446 §4.3.2 /
+  // RFC 5246 §7.4.4), so clients are not authenticated.
   if (SSL_CTX_set_min_proto_version(ctx, TLS1_2_VERSION) != 1) { SSL_CTX_free(ctx); return fail("TLS 1.2 minimum refused"); }
   SSL_CTX_set_verify(ctx, SSL_VERIFY_NONE, nullptr);
   if (SSL_CTX_use_certificate_chain_file(ctx, lean_string_cstr(certPath)) != 1) { SSL_CTX_free(ctx); return fail("certificate rejected"); }
@@ -189,7 +192,8 @@ extern "C" LEAN_EXPORT lean_object *lean_tls_server_context(b_lean_obj_arg certP
   return lean_io_result_mk_ok(lean_alloc_external(g_tls_ctx_class, ctx));
 }
 
-// lean_tls_accept ctx l: the next connection on the listener, its TLS handshake done.
+// lean_tls_accept ctx l: the next connection on the listener, its TLS handshake (RFC 8446 §4 /
+// RFC 5246 §7.4) done by SSL_accept.
 extern "C" LEAN_EXPORT lean_object *lean_tls_accept(b_lean_obj_arg ctx, b_lean_obj_arg lst, lean_obj_arg /* w */) {
   errno = 0;
   Lst *l = static_cast<Lst *>(lean_get_external_data(lst));
@@ -206,7 +210,9 @@ extern "C" LEAN_EXPORT lean_object *lean_tls_accept(b_lean_obj_arg ctx, b_lean_o
   return lean_io_result_mk_ok(lean_alloc_external(g_tls_conn_class, conn));
 }
 
-// lean_tls_read conn max: up to `max` bytes from the connection; empty once the peer has closed.
+// lean_tls_read conn max: up to `max` bytes of application data (RFC 8446 §5.1 / RFC 5246 §6.2); empty
+// once the peer has closed: its close_notify (RFC 8446 §6.1 / RFC 5246 §7.2.1, SSL_ERROR_ZERO_RETURN)
+// or its TCP connection gone (SSL_ERROR_SYSCALL with 0).
 extern "C" LEAN_EXPORT lean_object *lean_tls_read(b_lean_obj_arg conn, uint32_t max, lean_obj_arg /* w */) {
   errno = 0;
   Conn *c = static_cast<Conn *>(lean_get_external_data(conn));
@@ -241,7 +247,8 @@ extern "C" LEAN_EXPORT lean_object *lean_tls_write(b_lean_obj_arg conn, b_lean_o
   return lean_io_result_mk_ok(lean_box(0));
 }
 
-// lean_tls_close conn: the TLS session shut down and the socket closed; later reads and writes fail
+// lean_tls_close conn: the TLS session shut down — SSL_shutdown sends close_notify (RFC 8446 §6.1 /
+// RFC 5246 §7.2.1), the peer's is not awaited — and the socket closed; later reads and writes fail
 // with "connection closed".
 extern "C" LEAN_EXPORT lean_object *lean_tls_close(b_lean_obj_arg conn, lean_obj_arg /* w */) {
   Conn *c = static_cast<Conn *>(lean_get_external_data(conn));
