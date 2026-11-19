@@ -6,7 +6,7 @@ Status:
 
 * compiles with libcurl 7.68.0,
 * tested on Ubuntu 20.04 and Windows 11,
-* built with Lean `v4.35.0` (see [lean-toolchain](./lean-toolchain)),
+* built with Lean `v4.36.0` (see [lean-toolchain](./lean-toolchain)),
 * the library uses the [Lean module system](https://lean-lang.org/doc/reference/latest/Source-Files-and-Modules/):
   every file under `src/` starts with `module`, so `Curl` can be imported
   from `module` files (`public import Curl`) as well as from classic files (`import Curl`),
@@ -17,7 +17,7 @@ Status:
 Installation steps:
 
 * if curl is installed
-  * leanCurl uses the corresponding libcurl shared library 
+  * leanCurl uses the corresponding libcurl shared library
   * otherwise install curl or the libcurl shared library (see [curl Download](https://curl.se/download.html))
 * execute lake update
 
@@ -41,16 +41,16 @@ def main : IO Unit := do
     -- make IO.Ref Stream.Buffer for response data
     let response ← IO.mkRef { : IO.FS.Stream.Buffer}
 
-    -- perfom the network transfer 
-    curl_easy_perform_with_options #[       
-        CurlOption.URL "https://dummyjson.com/products/add", -- set Url        
+    -- perfom the network transfer
+    curl_easy_perform_with_options #[
+        CurlOption.URL "https://dummyjson.com/products/add", -- set Url
         CurlOption.COPYPOSTFIELDS "{\"title\": \"curl\"}", -- set HTTP POST data
-        CurlOption.HTTPHEADER #["Content-Type: application/json", "Accept: application/json"], -- set HttpHeader       
+        CurlOption.HTTPHEADER #["Content-Type: application/json", "Accept: application/json"], -- set HttpHeader
         CurlOption.WRITEDATA response, -- response data should be written to this buffer
         CurlOption.WRITEFUNCTION Curl.writeBytes
     ]
 
-    -- get Stream.Buffer of IO.Ref 
+    -- get Stream.Buffer of IO.Ref
     let bytes ← response.get
     IO.println s!"response: {String.fromUTF8! bytes.data}"
 
